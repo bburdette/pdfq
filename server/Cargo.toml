@@ -7,7 +7,7 @@ authors = ["Ben Burdette <bburdette@gmail.com>"]
 env_logger = "0.5.13"
 log = "0.4.0"
 actix = "0.7.5"
-actix-web = { version = "0.7.13", features = ["ssl"] }
+actix-web = "0.7.13"
 futures = "0.1.25"
 serde = "1.0.27"
 serde_derive = "1.0.27"
@@ -17,4 +17,3 @@ uuid = { version = "0.6", features = ["v4"] }
 time = "0.1"
 rand = "0.5.0"
 toml = "0.4.8"
-openssl = { version="0.10" }

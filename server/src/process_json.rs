@@ -36,11 +36,15 @@ pub fn process_public_json( ip: &Option<&str>, msg: PublicMessage) -> Result<Opt
           content: serde_json::Value::Null,
         })),
         Some(data) => {
-          info!("", data);
-          match data.to_string().as_str(){
-          }
+          info!("{}", data);
+          // match data.to_string().as_str(){ }
+          Ok(Some(ServerResponse {
+            what: "!".to_string(),
+            content: serde_json::Value::Null,
+          }))
         }
       }
+    }
     wat => Err(failure::err_msg(format!("invalid 'what' code:'{}'", wat))),
   }
 }

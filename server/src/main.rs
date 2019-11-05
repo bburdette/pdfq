@@ -6,7 +6,6 @@ extern crate uuid;
 extern crate actix_web;
 extern crate futures;
 extern crate toml;
-extern crate openssl;
 extern crate actix;
 extern crate env_logger;
 #[macro_use]
@@ -18,7 +17,7 @@ use actix_web::middleware::Logger;
 use actix_web::fs::NamedFile;
 use actix_web::http::{Method,StatusCode};
 use actix_web::Binary;
-use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
+// use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 
 #[macro_use]
 extern crate serde_derive;
@@ -94,18 +93,20 @@ fn public(req: &HttpRequest) -> Box<Future<Item = String, Error = Error>> {
     .responder()
 }
 
+/*
 fn binfile(req: &HttpRequest) -> Box<Future<Item = Binary, Error = Error>> {
   req
     .json()
     .from_err()
     .and_then(move |msg: PublicMessage| {
-      Ok(match process_json::process_model_json(msg) {
+      Ok(match process_json::process_binfile_json(msg) {
         Ok(sr) => Binary::from(sr), 
         Err(e) => Binary::from(""),
       })
     })
     .responder()
 }
+*/
 
  
 #[derive(Deserialize, Debug)]
@@ -155,7 +156,7 @@ fn main() {
       
         App::new()
             .resource("/public", |r| r.method(Method::POST).f(public))
-            .resource("/binfile", |r| r.method(Method::POST).f(binfile))
+//            .resource("/binfile", |r| r.method(Method::POST).f(binfile))
             .resource(r"/static/{tail:.*}", |r| r.method(Method::GET).f(files))
             .resource("/favicon.ico", |r| r.method(Method::GET).f(favicon))
             .resource("/sitemap.txt", |r| r.method(Method::GET).f(sitemap))
