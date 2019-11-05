@@ -157,10 +157,10 @@ fn main() {
         App::new()
             .resource("/public", |r| r.method(Method::POST).f(public))
 //            .resource("/binfile", |r| r.method(Method::POST).f(binfile))
-            .resource(r"/static/{tail:.*}", |r| r.method(Method::GET).f(files))
             .resource("/favicon.ico", |r| r.method(Method::GET).f(favicon))
             .resource("/sitemap.txt", |r| r.method(Method::GET).f(sitemap))
-            .resource(r"/{tail:.*}", |r| r.method(Method::GET).f(mainpage))
+            .resource(r"/", |r| r.method(Method::GET).f(mainpage))
+            .resource(r"/{tail:.*}", |r| r.method(Method::GET).f(files))
 
     });
  
