@@ -1,0 +1,22 @@
+{
+  "name": "yarnparcelelm",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "devDependencies": {
+    "elm-hot": "^1.1.2",
+    "parcel": "^1.12.4",
+    "parcel-plugin-static-files-copy": "^2.2.1"
+  },
+  "dependencies": {
+    "node-ensure": "^0.0.0",
+    "pdf-element": "^0.1.1",
+    "pdfjs-dist": "^2.2.228"
+  },
+  "staticFiles": {
+    "staticPath": [
+      "node_modules/pdfjs-dist/build"
+    ],
+    "staticOutDir": "pdfjs"
+  }
+}
