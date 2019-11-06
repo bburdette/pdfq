@@ -1,0 +1,8 @@
+.cache/
+elm/elm-stuff/
+node_modules/
+notes.txt
+server/Cargo.lock
+server/static/
+server/target/
+yarn.lock
