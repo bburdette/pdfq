@@ -28,6 +28,7 @@ type alias Model =
 
 type Msg
     = ViewerMsg PdfViewer.Msg
+    | ListMsg PdfList.Msg
     | ServerResponse (Result Http.Error PI.ServerResponse)
 
 
@@ -41,12 +42,21 @@ update msg model =
             in
             ( { model | viewerModel = vmod }, Cmd.map ViewerMsg vcmd )
 
-        ServerResponse sr ->
-            let
-                _ =
-                    Debug.log "sr" sr
-            in
+        ListMsg lm ->
             ( model, Cmd.none )
+
+        ServerResponse sr ->
+            case sr of
+                Err e ->
+                    ( model, Cmd.none )
+
+                Ok isr ->
+                    case isr of
+                        PI.ServerError e ->
+                            ( model, Cmd.none )
+
+                        PI.FileListReceived lst ->
+                            ( { model | pdfList = Just lst }, Cmd.none )
 
 
 view : Model -> Html Msg
@@ -54,8 +64,13 @@ view model =
     E.layout
         []
     <|
-        E.map ViewerMsg <|
-            PdfViewer.view model.viewerModel
+        case model.pdfList of
+            Nothing ->
+                E.map ViewerMsg <|
+                    PdfViewer.view model.viewerModel
+
+            Just l ->
+                PdfList.view l
 
 
 type alias Flags =
