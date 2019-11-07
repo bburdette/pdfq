@@ -4,6 +4,8 @@ use failure::Error;
 use serde_json::Value;
 use std::fs::File;
 use std::io::Read;
+use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 use util;
 
 #[derive(Deserialize, Debug)]
@@ -26,27 +28,55 @@ pub struct ServerResponse {
   pub content: Value,
 }
 
+#[derive(Serialize, Debug)]
+struct PdfList {
+  pdfs: Vec<PdfInfo>,
+}
+
+#[derive(Serialize, Debug)]
+struct PdfInfo {
+  last_read: Option<SystemTime>,
+  filename: String,
+}
+
+fn pdfscan(pdfdir: &str) -> Result<std::vec::Vec<PdfInfo>, Error> {
+  let p = Path::new(pdfdir);
+
+  let mut v = Vec::new();
+
+  if p.exists() {
+    for fr in p.read_dir()? {
+      let f = fr?;
+      v.push(PdfInfo {
+        filename: f
+          .file_name()
+          .into_string()
+          .unwrap_or("non utf filename".to_string()),
+        last_read: f.metadata().and_then(|f| f.accessed()).ok(),
+      });
+
+      println!("eff {:?}", f);
+    }
+  }
+
+  Ok(v)
+}
+
 // public json msgs don't require login.
 pub fn process_public_json(
+  pdfdir: &str,
   ip: &Option<&str>,
   msg: PublicMessage,
 ) -> Result<Option<ServerResponse>, Error> {
   match msg.what.as_str() {
     "getfilelist" => {
-      match msg.data {
-        None => Ok(Some(ServerResponse {
-          what: "!".to_string(),
-          content: serde_json::Value::Null,
-        })),
-        Some(data) => {
-          info!("{}", data);
-          // match data.to_string().as_str(){ }
-          Ok(Some(ServerResponse {
-            what: "!".to_string(),
-            content: serde_json::Value::Null,
-          }))
-        }
-      }
+      let pl = PdfList {
+        pdfs: pdfscan(pdfdir)?,
+      };
+      Ok(Some(ServerResponse {
+        what: "filelist".to_string(),
+        content: serde_json::to_value(pl)?,
+      }))
     }
     wat => Err(failure::err_msg(format!("invalid 'what' code:'{}'", wat))),
   }

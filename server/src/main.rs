@@ -27,29 +27,37 @@ use failure::Error;
 use futures::future::Future;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
+use std::time::SystemTime;
 mod process_json;
 mod util;
 use process_json::{process_public_json, PublicMessage, ServerResponse};
 
-fn files(req: &HttpRequest) -> Result<NamedFile> {
+#[derive(Deserialize, Debug, Clone)]
+pub struct Config {
+  ip: String,
+  port: u16,
+  pdfdir: String,
+}
+
+fn files(req: &HttpRequest<Config>) -> Result<NamedFile> {
   let path: PathBuf = req.match_info().query("tail")?;
   info!("files: {:?}", path);
   let stpath = Path::new("static/").join(path);
   Ok(NamedFile::open(stpath)?)
 }
 
-fn favicon(req: &HttpRequest) -> Result<NamedFile> {
+fn favicon(_req: &HttpRequest<Config>) -> Result<NamedFile> {
   let stpath = Path::new("static/favicon.ico");
   Ok(NamedFile::open(stpath)?)
 }
 
-fn sitemap(req: &HttpRequest) -> Result<NamedFile> {
+fn sitemap(_req: &HttpRequest<Config>) -> Result<NamedFile> {
   let stpath = Path::new("static/sitemap.txt");
   Ok(NamedFile::open(stpath)?)
 }
 
 // simple index handler
-fn mainpage(req: &HttpRequest) -> Result<HttpResponse> {
+fn mainpage(req: &HttpRequest<Config>) -> Result<HttpResponse> {
   info!(
     "remote ip: {:?}, request:{:?}",
     req.connection_info().remote(),
@@ -69,14 +77,15 @@ fn mainpage(req: &HttpRequest) -> Result<HttpResponse> {
   }
 }
 
-fn public(req: &HttpRequest) -> Box<Future<Item = String, Error = Error>> {
+fn public(req: &HttpRequest<Config>) -> Box<dyn Future<Item = String, Error = Error>> {
   let ci = req.connection_info().clone();
+  let pd = req.state().pdfdir.clone();
   req
     .json()
     .from_err()
     .and_then(move |msg: PublicMessage| {
       Ok(
-        match process_json::process_public_json(&(ci.remote()), msg) {
+        match process_json::process_public_json(pd.as_str(), &(ci.remote()), msg) {
           Ok(sr) => match serde_json::to_string(&sr) {
             Ok(s) => s,
             Err(e) => e.to_string(),
@@ -113,16 +122,11 @@ fn binfile(req: &HttpRequest) -> Box<Future<Item = Binary, Error = Error>> {
 }
 */
 
-#[derive(Deserialize, Debug)]
-struct Config {
-  ip: String,
-  port: u16,
-}
-
 fn defcon() -> Config {
   Config {
     ip: "127.0.0.1".to_string(),
     port: 8000,
+    pdfdir: "./pdfs".to_string(),
   }
 }
 
@@ -143,22 +147,31 @@ fn load_config() -> Config {
 }
 
 fn main() {
-  let config = load_config();
+  match err_main() {
+    Err(e) => println!("error: {:?}", e),
+    Ok(_) => (),
+  }
+}
+fn err_main() -> Result<(), Error> {
   env_logger::init();
 
   info!("server init!");
 
+  let config = load_config();
+
+  println!("config: {:?}", config);
+
   let sys = actix::System::new("whatevs");
 
   {
+    let c = config.clone();
     let s = server::new(move || {
-      App::new()
-        .resource("/public", |r| r.method(Method::POST).f(public))
-        //            .resource("/binfile", |r| r.method(Method::POST).f(binfile))
-        .resource("/favicon.ico", |r| r.method(Method::GET).f(favicon))
-        .resource("/sitemap.txt", |r| r.method(Method::GET).f(sitemap))
-        .resource(r"/", |r| r.method(Method::GET).f(mainpage))
-        .resource(r"/{tail:.*}", |r| r.method(Method::GET).f(files))
+      App::with_state(c.clone()).resource("/public", |r| r.method(Method::POST).f(public))
+      //            .resource("/binfile", |r| r.method(Method::POST).f(binfile))
+      .resource("/favicon.ico", |r| r.method(Method::GET).f(favicon))
+      .resource("/sitemap.txt", |r| r.method(Method::GET).f(sitemap))
+      .resource(r"/", |r| r.method(Method::GET).f(mainpage))
+      .resource(r"/{tail:.*}", |r| r.method(Method::GET).f(files))
     });
 
     s.bind(format!("{}:{}", config.ip, config.port))
@@ -167,4 +180,6 @@ fn main() {
   .start();
 
   sys.run();
+
+  Ok(())
 }
