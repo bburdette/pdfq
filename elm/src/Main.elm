@@ -9,21 +9,26 @@ import Element.Input as EI
 import File exposing (File)
 import File.Select as FS
 import Html exposing (Html)
+import Http
 import Json.Decode as JD
 import Json.Encode as JE
 import PdfElement
 import PdfList
 import PdfViewer
+import PublicInterface as PI
 import Task
 
 
 type alias Model =
     { viewerModel : PdfViewer.Model
+    , pdfList : Maybe PdfList.PdfList
+    , location : String
     }
 
 
 type Msg
     = ViewerMsg PdfViewer.Msg
+    | ServerResponse (Result Http.Error PI.ServerResponse)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -36,6 +41,13 @@ update msg model =
             in
             ( { model | viewerModel = vmod }, Cmd.map ViewerMsg vcmd )
 
+        ServerResponse sr ->
+            let
+                _ =
+                    Debug.log "sr" sr
+            in
+            ( model, Cmd.none )
+
 
 view : Model -> Html Msg
 view model =
@@ -47,13 +59,22 @@ view model =
 
 
 type alias Flags =
-    ()
+    { location : String }
+
+
+mkPublicHttpReq : String -> PI.SendMsg -> Cmd Msg
+mkPublicHttpReq location msg =
+    Http.post
+        { url = location ++ "/public"
+        , body = Http.jsonBody (PI.encodeSendMsg msg)
+        , expect = Http.expectJson ServerResponse PI.decodeServerResponse
+        }
 
 
 init : Flags -> ( Model, Cmd Msg )
-init _ =
-    ( { viewerModel = PdfViewer.init }
-    , Cmd.none
+init flags =
+    ( { viewerModel = PdfViewer.init, pdfList = Nothing, location = flags.location }
+    , mkPublicHttpReq flags.location PI.GetFileList
     )
 
 

@@ -1,4 +1,4 @@
-module PdfList exposing (PdfInfo, PdfList)
+module PdfList exposing (..)
 
 import Json.Decode as JD
 import Json.Encode as JE
