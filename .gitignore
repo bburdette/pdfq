@@ -1,6 +1,7 @@
 .cache/
 elm/elm-stuff/
 node_modules/
+todo.txt
 notes.txt
 server/Cargo.lock
 server/static/
