@@ -1,6 +1,7 @@
 module PdfList exposing (..)
 
 import Calendar as CA
+import Common exposing (buttonStyle)
 import DateTime as DT
 import Element as E exposing (Element)
 import Element.Background as EBg
@@ -27,7 +28,7 @@ import Util as U
 -}
 
 
-type alias PdfList =
+type alias Model =
     { pdfs : List PdfInfo }
 
 
@@ -44,17 +45,22 @@ decodePdfInfo =
         (JD.field "filename" JD.string)
 
 
-decodePdfList : JD.Decoder PdfList
+decodePdfList : JD.Decoder (List PdfInfo)
 decodePdfList =
-    JD.map PdfList
-        (JD.field "pdfs" (JD.list decodePdfInfo))
+    JD.field "pdfs" (JD.list decodePdfInfo)
 
 
 type Msg
     = Noop
+    | OpenClick PdfInfo
 
 
-view : PdfList -> Element msg
+type Command
+    = None
+    | Open PdfInfo
+
+
+view : Model -> Element Msg
 view pdfs =
     E.column [ E.width E.fill ] <|
         List.map
@@ -62,6 +68,20 @@ view pdfs =
                 E.row [ E.width E.fill ]
                     [ E.text pi.fileName
                     , E.text <| U.dateToString (CA.fromPosix pi.lastRead)
+                    , EI.button buttonStyle
+                        { label = E.text "open"
+                        , onPress = Just <| OpenClick pi
+                        }
                     ]
             )
             pdfs.pdfs
+
+
+update : Msg -> Model -> ( Model, Command )
+update msg model =
+    case msg of
+        Noop ->
+            ( model, None )
+
+        OpenClick pi ->
+            ( model, Open pi )

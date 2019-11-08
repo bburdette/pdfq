@@ -11,7 +11,7 @@ type SendMsg
 
 type ServerResponse
     = ServerError String
-    | FileListReceived PdfList.PdfList
+    | FileListReceived (List PdfList.PdfInfo)
 
 
 

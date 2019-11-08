@@ -14,6 +14,7 @@ import PdfElement
 import PdfList
 import Task
 
+
 port sendPdfCommand : JE.Value -> Cmd msg
 
 
@@ -49,6 +50,11 @@ type Msg
     | PdfMsg (Result JD.Error PdfElement.PdfMsg)
 
 
+openPdfUrl : String -> String -> Cmd Msg
+openPdfUrl name url =
+    pdfsend <| PdfElement.OpenUrl { name = name, url = url }
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
@@ -75,6 +81,10 @@ update msg model =
             )
 
         PdfMsg ms ->
+            let
+                _ =
+                    Debug.log "pm" ms
+            in
             case ms of
                 Ok (PdfElement.Loaded lm) ->
                     ( { model
@@ -85,9 +95,17 @@ update msg model =
                     )
 
                 Ok (PdfElement.Error e) ->
+                    let
+                        _ =
+                            Debug.log "pdfee" e
+                    in
                     ( model, Cmd.none )
 
                 Err e ->
+                    let
+                        _ =
+                            Debug.log "erree" e
+                    in
                     ( model, Cmd.none )
 
         PrevPage ->

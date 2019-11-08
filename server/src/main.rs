@@ -40,10 +40,39 @@ pub struct Config {
 }
 
 fn files(req: &HttpRequest<Config>) -> Result<NamedFile> {
+  println!("files!");
   let path: PathBuf = req.match_info().query("tail")?;
   info!("files: {:?}", path);
   let stpath = Path::new("static/").join(path);
   Ok(NamedFile::open(stpath)?)
+}
+
+fn pdffiles(req: &HttpRequest<Config>) -> Result<NamedFile> {
+  let path: PathBuf = req.match_info().query("tail")?;
+  println!("pdffiles! {:?}", path);
+  println!("pdffiles! {:?}", req.match_info());
+  let uripath = Path::new(req.uri().path());
+  println!("path {:?}", uripath);
+  println!("path {:?}", uripath.strip_prefix("/pdfs"));
+  uripath
+    .strip_prefix("/pdfs")
+    .map_err(|e| actix_web::error::ErrorImATeapot(e))
+    .and_then(|path| {
+      println!("alsopath: {:?}", path);
+      let stpath = Path::new(&req.state().pdfdir.to_string()).join(path);
+      println!("stpath: {:?}", stpath);
+      let nf = NamedFile::open(stpath.clone());
+      match nf {
+        Ok(_) => println!("ef: "),
+        Err(e) => println!("err: {}", e),
+      }
+      // println!("nf: {:?}", nf);
+      let nf = NamedFile::open(stpath);
+      nf.map_err(|e| actix_web::error::ErrorImATeapot(e))
+    })
+
+  // info!("files: {:?}", path);
+  // info!("stpath: {:?}", stpath);
 }
 
 fn favicon(_req: &HttpRequest<Config>) -> Result<NamedFile> {
@@ -163,15 +192,23 @@ fn err_main() -> Result<(), Error> {
 
   let sys = actix::System::new("whatevs");
 
+  let nf = NamedFile::open("/home/bburdette/papers/7Sketches2.pdf");
+  match nf {
+    Ok(_) => println!("ef: "),
+    Err(e) => println!("err: {}", e),
+  }
+
   {
     let c = config.clone();
     let s = server::new(move || {
-      App::with_state(c.clone()).resource("/public", |r| r.method(Method::POST).f(public))
-      //            .resource("/binfile", |r| r.method(Method::POST).f(binfile))
-      .resource("/favicon.ico", |r| r.method(Method::GET).f(favicon))
-      .resource("/sitemap.txt", |r| r.method(Method::GET).f(sitemap))
-      .resource(r"/", |r| r.method(Method::GET).f(mainpage))
-      .resource(r"/{tail:.*}", |r| r.method(Method::GET).f(files))
+      App::with_state(c.clone())
+        .resource("/public", |r| r.method(Method::POST).f(public))
+        //            .resource("/binfile", |r| r.method(Method::POST).f(binfile))
+        .resource("/favicon.ico", |r| r.method(Method::GET).f(favicon))
+        .resource("/sitemap.txt", |r| r.method(Method::GET).f(sitemap))
+        .resource(r"/", |r| r.method(Method::GET).f(mainpage))
+        .resource(r"/pdfs/{tail:.*}", |r| r.method(Method::GET).f(pdffiles))
+        .resource(r"/{tail:.*}", |r| r.method(Method::GET).f(files))
     });
 
     s.bind(format!("{}:{}", config.ip, config.port))

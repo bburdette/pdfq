@@ -19,10 +19,16 @@ import PublicInterface as PI
 import Task
 
 
+type Page
+    = View
+    | List
+
+
 type alias Model =
     { viewerModel : PdfViewer.Model
-    , pdfList : Maybe PdfList.PdfList
+    , listModel : PdfList.Model
     , location : String
+    , page : Page
     }
 
 
@@ -40,10 +46,28 @@ update msg model =
                 ( vmod, vcmd ) =
                     PdfViewer.update vm model.viewerModel
             in
-            ( { model | viewerModel = vmod }, Cmd.map ViewerMsg vcmd )
+            ( { model
+                | viewerModel = vmod
+                , page = View
+              }
+            , Cmd.map ViewerMsg vcmd
+            )
 
         ListMsg lm ->
-            ( model, Cmd.none )
+            let
+                ( lmod, lcmd ) =
+                    PdfList.update lm model.listModel
+            in
+            ( { model | listModel = lmod }
+            , case lcmd of
+                PdfList.None ->
+                    Cmd.none
+
+                PdfList.Open pi ->
+                    Cmd.map ViewerMsg <|
+                        PdfViewer.openPdfUrl pi.fileName
+                            (Debug.log "blah" <| model.location ++ "/pdfs/" ++ pi.fileName)
+            )
 
         ServerResponse sr ->
             case sr of
@@ -56,7 +80,16 @@ update msg model =
                             ( model, Cmd.none )
 
                         PI.FileListReceived lst ->
-                            ( { model | pdfList = Just lst }, Cmd.none )
+                            let
+                                plm =
+                                    model.listModel
+                            in
+                            ( { model
+                                | listModel =
+                                    { plm | pdfs = lst }
+                              }
+                            , Cmd.none
+                            )
 
 
 view : Model -> Html Msg
@@ -64,13 +97,14 @@ view model =
     E.layout
         []
     <|
-        case model.pdfList of
-            Nothing ->
+        case model.page of
+            List ->
+                E.map ListMsg <|
+                    PdfList.view model.listModel
+
+            View ->
                 E.map ViewerMsg <|
                     PdfViewer.view model.viewerModel
-
-            Just l ->
-                PdfList.view l
 
 
 type alias Flags =
@@ -88,7 +122,11 @@ mkPublicHttpReq location msg =
 
 init : Flags -> ( Model, Cmd Msg )
 init flags =
-    ( { viewerModel = PdfViewer.init, pdfList = Nothing, location = flags.location }
+    ( { viewerModel = PdfViewer.init
+      , listModel = { pdfs = [] }
+      , location = flags.location
+      , page = List
+      }
     , mkPublicHttpReq flags.location PI.GetFileList
     )
 
