@@ -41,6 +41,7 @@ pub struct Config {
   port: u16,
   pdfdir: String,
   statedir: String,
+  createdirs: bool,
 }
 
 fn files(req: &HttpRequest) -> Result<NamedFile> {
@@ -154,6 +155,7 @@ fn defcon() -> Config {
     port: 8000,
     pdfdir: "./pdfs".to_string(),
     statedir: "./state".to_string(),
+    createdirs: false,
   }
 }
 
@@ -186,6 +188,24 @@ fn err_main() -> Result<(), std::io::Error> {
 
   let config = load_config();
 
+  if config.createdirs {
+    std::fs::create_dir_all(config.pdfdir.clone())?;
+    std::fs::create_dir_all(config.statedir.clone())?;
+  } else {
+    if !Path::new(&config.pdfdir).exists() {
+      Err(std::io::Error::new(
+        std::io::ErrorKind::NotFound,
+        "pdfdir not found!",
+      ))?
+    }
+    if !Path::new(&config.statedir).exists() {
+      Err(std::io::Error::new(
+        std::io::ErrorKind::NotFound,
+        "statedir not found!",
+      ))?
+    }
+  }
+
   println!("config: {:?}", config);
 
   let sys = actix_rt::System::new("pdf-server");
@@ -209,5 +229,4 @@ fn err_main() -> Result<(), std::io::Error> {
   })
   .bind(format!("{}:{}", config.ip, config.port))?
   .run()
-
 }
