@@ -87,6 +87,7 @@ fn pdfscan(pdfdir: &str) -> Result<std::vec::Vec<PdfInfo>, Error> {
 
 // public json msgs don't require login.
 pub fn process_public_json(
+  statedir: &str,
   pdfdir: &str,
   ip: &Option<&str>,
   msg: PublicMessage,
@@ -103,13 +104,13 @@ pub fn process_public_json(
     }
     "savepdfstate" => {
       // write the pdfstate to the appropriate file.
-      msg.data.map(|json| {
+      msg.data.map_or(Ok(()), (|json| {
         let ps: PersistentState = serde_json::from_value(json.clone())?;
         util::write_string(
-          format!("{}.state", ps.pdf_name).as_str(),
+          format!("{}/{}.state", statedir, ps.pdf_name).as_str(),
           json.to_string().as_str(),
-        )
-      });
+        ).map(|_| ())
+      }))?;
       Ok(Some(ServerResponse {
         what: "pdfstatesaved".to_string(),
         content: serde_json::Value::Null,

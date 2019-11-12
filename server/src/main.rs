@@ -40,6 +40,7 @@ pub struct Config {
   ip: String,
   port: u16,
   pdfdir: String,
+  statedir: String,
 }
 
 fn files(req: &HttpRequest) -> Result<NamedFile> {
@@ -118,9 +119,7 @@ fn mainpage(state: web::Data<Config>, req: HttpRequest) -> HttpResponse {
     }
   }
 }
-
-
-fn publick(
+fn public(
   state: web::Data<Config>,
   item: web::Json<PublicMessage>,
   req: HttpRequest,
@@ -129,11 +128,15 @@ fn publick(
 
   let ci = req.connection_info().clone();
   let pd = state.pdfdir.clone();
+  let sd = state.statedir.clone();
 
-
-  match process_json::process_public_json(pd.as_str(), &(ci.remote()), item.into_inner()) {
-    Ok(sr) =>
-      HttpResponse::Ok().json(sr),
+  match process_json::process_public_json(
+    sd.as_str(),
+    pd.as_str(),
+    &(ci.remote()),
+    item.into_inner(),
+  ) {
+    Ok(sr) => HttpResponse::Ok().json(sr),
     Err(e) => {
       error!("uh oh, 'public' err: {:?}", e);
       let se = ServerResponse {
@@ -143,90 +146,14 @@ fn publick(
       HttpResponse::Ok().json(se)
     }
   }
-
 }
-
-/*
-fn public(state: web::Data<Config>, req: HttpRequest) -> Box<dyn Future<Item = String, Error = actix_web::Error>> {
-  let ci = req.connection_info().clone();
-  let pd = state.pdfdir.clone();
-  req
-    .json()
-    .from_err()
-    .and_then(move |msg: PublicMessage| {
-      Ok(
-        match process_json::process_public_json(pd.as_str(), &(ci.remote()), msg) {
-          Ok(sr) => match serde_json::to_string(&sr) {
-            Ok(s) => s,
-            Err(e) => e.to_string(),
-          },
-          Err(e) => {
-            error!("uh oh, 'public' err: {:?}", e);
-            let se = ServerResponse {
-              what: "server error".to_string(),
-              content: serde_json::Value::String(e.to_string()),
-            };
-            match serde_json::to_string(&se) {
-              Ok(s) => s,
-              Err(e) => e.to_string(),
-            }
-          }
-        },
-      )
-    })
-    .responder()
-}*/
-
-// fn public(req: &HttpRequest) -> Box<dyn Future<Item = String, Error = Error>> {
-//   let ci = req.connection_info().clone();
-//   let pd = req.state().pdfdir.clone();
-//   req
-//     .json()
-//     .from_err()
-//     .and_then(move |msg: PublicMessage| {
-//       Ok(
-//         match process_json::process_public_json(pd.as_str(), &(ci.remote()), msg) {
-//           Ok(sr) => match serde_json::to_string(&sr) {
-//             Ok(s) => s,
-//             Err(e) => e.to_string(),
-//           },
-//           Err(e) => {
-//             error!("uh oh, 'public' err: {:?}", e);
-//             let se = ServerResponse {
-//               what: "server error".to_string(),
-//               content: serde_json::Value::String(e.to_string()),
-//             };
-//             match serde_json::to_string(&se) {
-//               Ok(s) => s,
-//               Err(e) => e.to_string(),
-//             }
-//           }
-//         },
-//       )
-//     })
-//     .responder()
-// }
-
-/*
-fn binfile(req: &HttpRequest) -> Box<Future<Item = Binary, Error = Error>> {
-  req
-    .json()
-    .from_err()
-    .and_then(move |msg: PublicMessage| {
-      Ok(match process_json::process_binfile_json(msg) {
-        Ok(sr) => Binary::from(sr),
-        Err(e) => Binary::from(""),
-      })
-    })
-    .responder()
-}
-*/
 
 fn defcon() -> Config {
   Config {
     ip: "127.0.0.1".to_string(),
     port: 8000,
     pdfdir: "./pdfs".to_string(),
+    statedir: "./state".to_string(),
   }
 }
 
@@ -261,8 +188,7 @@ fn err_main() -> Result<(), std::io::Error> {
 
   println!("config: {:?}", config);
 
-  // let sys = actix::System::new("whatevs");
-  let sys = actix_rt::System::new("example");
+  let sys = actix_rt::System::new("pdf-server");
 
   let nf = NamedFile::open("/home/bburdette/papers/7Sketches2.pdf");
   match nf {
@@ -276,35 +202,12 @@ fn err_main() -> Result<(), std::io::Error> {
       .register_data(c.clone()) // <- create app with shared state
       // enable logger
       .wrap(middleware::Logger::default())
-      // register simple handler, handle all methods
-      // .route("/pdfs/{filename:.*}", web::get().to(pdffiles))
-      // .route("/public", |r| web::post().to(public))
       .route("/", web::get().to(mainpage))
-      .route("/public", web::post().to(publick))
+      .route("/public", web::post().to(public))
       .service(actix_files::Files::new("/pdfs", c.pdfdir.as_str()))
       .service(actix_files::Files::new("/", "static/"))
-    //   .service(web::resource("/pdfs").to(pdffiles))
   })
   .bind(format!("{}:{}", config.ip, config.port))?
   .run()
 
-  // {
-  //   let c = config.clone();
-  //   let s = server::new(move || {
-  //     App::with_state(c.clone())
-  //       .resource("/public", |r| r.method(Method::POST).f(public))
-  //       //            .resource("/binfile", |r| r.method(Method::POST).f(binfile))
-  //       .resource("/favicon.ico", |r| r.method(Method::GET).f(favicon))
-  //       .resource("/sitemap.txt", |r| r.method(Method::GET).f(sitemap))
-  //       .resource(r"/", |r| r.method(Method::GET).f(mainpage))
-  //       .resource(r"/pdfs/{tail:.*}", |r| r.method(Method::GET).f(pdffiles))
-  //       .resource(r"/{tail:.*}", |r| r.method(Method::GET).f(files))
-  //   });
-
-  //   s.bind(format!("{}:{}", config.ip, config.port))
-  // }
-  // .expect(format!("Can not bind to port {}", config.port).as_str())
-  // .start();
-
-  // sys.run();
 }
