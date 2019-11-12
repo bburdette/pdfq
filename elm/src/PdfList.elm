@@ -60,25 +60,18 @@ type Msg
     | PDMsg PD.Msg
 
 
-
-{- type Command
-   = None
-   | Open PdfInfo
--}
-
-
 view : Model -> Element Msg
 view model =
-    E.column [ E.width E.fill ] <|
+    E.column [ E.width E.fill, E.spacing 5 ] <|
         List.map
             (\pi ->
-                E.row [ E.width E.fill ]
-                    [ E.text pi.fileName
-                    , E.text <| U.dateToString (CA.fromPosix pi.lastRead)
-                    , EI.button buttonStyle
+                E.row [ E.width E.fill, E.spacing 5 ]
+                    [ EI.button buttonStyle
                         { label = E.text "open"
                         , onPress = Just <| OpenClick pi
                         }
+                    , E.text <| U.dateToString (CA.fromPosix pi.lastRead)
+                    , E.text pi.fileName
                     ]
             )
             model.pdfs
@@ -109,12 +102,3 @@ update msg model =
                     PD.openPdfUrl
                         pi.fileName
                         (model.location ++ "/pdfs/" ++ pi.fileName)
-
-
-
-{- Viewer
-   <|
-       PV.init pi
-           model
-           ( model, Open pi )
--}

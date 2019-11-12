@@ -10,6 +10,7 @@ import Element.Font as EF
 import Element.Input as EI
 import File exposing (File)
 import File.Select as FS
+import Html exposing (Html)
 import Json.Decode as JD
 import Json.Encode as JE
 import PdfDoc as PD
@@ -131,29 +132,32 @@ topBar model =
         ]
 
 
-view : Model a -> Element Msg
+view : Model a -> Html Msg
 view model =
-    E.column [ E.spacing 5, E.width E.fill, E.alignTop, E.inFront <| topBar model ]
-        [ E.el [ E.transparent True ] <| topBar model
-        , E.row [ E.width E.fill, E.alignTop ]
-            [ E.column
-                [ E.width E.fill
-                , E.height E.fill
-                , E.alignTop
-                , E.paddingXY 5 0
-                ]
-                [ E.el
-                    [ E.width E.shrink
-                    , E.centerX
-                    , EB.width 5
+    E.layout
+        [ E.inFront <| topBar model ]
+    <|
+        E.column [ E.spacing 5, E.width E.fill, E.alignTop ]
+            [ E.el [ E.transparent True ] <| topBar model
+            , E.row [ E.width E.fill, E.alignTop ]
+                [ E.column
+                    [ E.width E.fill
+                    , E.height E.fill
                     , E.alignTop
+                    , E.paddingXY 5 0
                     ]
-                  <|
-                    E.html <|
-                        PdfElement.pdfPage model.pdfName model.page (PdfElement.Scale model.zoom)
+                    [ E.el
+                        [ E.width E.shrink
+                        , E.centerX
+                        , EB.width 5
+                        , E.alignTop
+                        ]
+                      <|
+                        E.html <|
+                            PdfElement.pdfPage model.pdfName model.page (PdfElement.Scale model.zoom)
+                    ]
                 ]
             ]
-        ]
 
 
 

@@ -37,7 +37,7 @@ type alias Model =
 type Msg
     = ViewerMsg PdfViewer.Msg
     | ListMsg PL.Msg
-    | PdfDocMsg PD.Msg
+    | PDMsg PD.Msg
     | EVMsg EV.Msg
     | ServerResponse (Result Http.Error PI.ServerResponse)
 
@@ -67,7 +67,15 @@ update msg model =
                 PL.Error e ->
                     ( { model | page = ErrorView <| EV.init e (List mod) }, Cmd.none )
 
-        ( PdfDocMsg pdm, page ) ->
+        ( EVMsg evm, ErrorView evmod ) ->
+            case EV.update evm evmod of
+                EV.ErrorView mod ->
+                    ( { model | page = ErrorView mod }, Cmd.none )
+
+                EV.Back pp ->
+                    ( { model | page = pp }, Cmd.none )
+
+        ( PDMsg pdm, page ) ->
             case page of
                 List mod ->
                     update (ListMsg (PL.PDMsg pdm)) model
@@ -75,7 +83,7 @@ update msg model =
                 _ ->
                     ( model, Cmd.none )
 
-        ( ServerResponse sr, _ ) ->
+        ( ServerResponse sr, page ) ->
             case sr of
                 Err e ->
                     ( model, Cmd.none )
@@ -83,7 +91,7 @@ update msg model =
                 Ok isr ->
                     case isr of
                         PI.ServerError e ->
-                            ( model, Cmd.none )
+                            ( { model | page = ErrorView <| EV.init e page }, Cmd.none )
 
                         PI.FileListReceived lst ->
                             ( { model | page = List (PL.init lst model.location) }, Cmd.none )
@@ -94,23 +102,30 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
-    E.layout
-        []
-    <|
-        case model.page of
-            List mod ->
+    case model.page of
+        List mod ->
+            E.layout
+                []
+            <|
                 E.map ListMsg <|
                     PL.view mod
 
-            Viewer mod ->
-                E.map ViewerMsg <|
-                    PdfViewer.view mod
+        Viewer mod ->
+            Html.map ViewerMsg <|
+                PdfViewer.view mod
 
-            Loading ->
+        Loading ->
+            E.layout
+                []
+            <|
                 E.text "loading"
 
-            ErrorView evm ->
-                E.map EVMsg <| EV.view evm
+        ErrorView evm ->
+            E.layout
+                []
+            <|
+                E.map EVMsg <|
+                    EV.view evm
 
 
 type alias Flags =
@@ -139,7 +154,7 @@ main : Program Flags Model Msg
 main =
     B.element
         { init = init
-        , subscriptions = \_ -> Sub.map PdfDocMsg PD.pdfreceive
+        , subscriptions = \_ -> Sub.map PDMsg PD.pdfreceive
         , view = view
         , update = update
         }
