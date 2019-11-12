@@ -52,39 +52,22 @@ fn files(req: &HttpRequest) -> Result<NamedFile> {
   Ok(NamedFile::open(stpath)?)
 }
 
-// fn index(state: web::Data<Mutex<usize>>, req: HttpRequest) -> HttpResponse {
-//     println!("{:?}", req);
-//     *(state.lock().unwrap()) += 1;
-
-//     HttpResponse::Ok().body(format!("Num of requests: {}", state.lock().unwrap()))
-// }
-
 fn pdffiles(state: web::Data<Config>, req: &HttpRequest) -> Result<NamedFile> {
   let path: PathBuf = req.match_info().query("tail").parse()?;
-  println!("pdffiles! {:?}", path);
-  println!("pdffiles! {:?}", req.match_info());
   let uripath = Path::new(req.uri().path());
-  println!("path {:?}", uripath);
-  println!("path {:?}", uripath.strip_prefix("/pdfs"));
   uripath
     .strip_prefix("/pdfs")
     .map_err(|e| actix_web::error::ErrorImATeapot(e))
     .and_then(|path| {
-      println!("alsopath: {:?}", path);
       let stpath = Path::new(&state.pdfdir.to_string()).join(path);
-      println!("stpath: {:?}", stpath);
       let nf = NamedFile::open(stpath.clone());
       match nf {
         Ok(_) => println!("ef: "),
         Err(e) => println!("err: {}", e),
       }
-      // println!("nf: {:?}", nf);
       let nf = NamedFile::open(stpath);
       nf.map_err(|e| actix_web::error::ErrorImATeapot(e))
     })
-
-  // info!("files: {:?}", path);
-  // info!("stpath: {:?}", stpath);
 }
 
 fn favicon(_req: &HttpRequest) -> Result<NamedFile> {
