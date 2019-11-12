@@ -1,8 +1,9 @@
 extern crate actix_files;
 extern crate actix_rt;
 extern crate actix_web;
+#[macro_use]
+extern crate simple_error;
 extern crate env_logger;
-extern crate failure;
 extern crate futures;
 extern crate json;
 extern crate rand;
@@ -25,7 +26,6 @@ use actix_web::{
 #[macro_use]
 extern crate serde_derive;
 
-// use failure::Error;
 use futures::future::Future;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
@@ -99,7 +99,7 @@ fn mainpage(state: web::Data<Config>, req: HttpRequest) -> HttpResponse {
     }
     Err(e) => {
       println!("err");
-      HttpResponse::from_error(e.into())
+      HttpResponse::from_error(actix_web::error::ErrorImATeapot(e))
     }
   }
 }

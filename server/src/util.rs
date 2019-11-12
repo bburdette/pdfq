@@ -1,14 +1,13 @@
 use rand;
 use rand::Rng;
+use std::error::Error;
 use std::fs::File;
 use std::io::Read;
 use std::io::Write;
 use std::path::Path;
 use std::string::*;
 
-use failure;
-
-pub fn load_string(file_name: &str) -> Result<String, failure::Error> {
+pub fn load_string(file_name: &str) -> Result<String, Box<Error>> {
   let path = &Path::new(&file_name);
   let mut inf = try!(File::open(path));
   let mut result = String::new();
@@ -16,7 +15,7 @@ pub fn load_string(file_name: &str) -> Result<String, failure::Error> {
   Ok(result)
 }
 
-pub fn write_string(file_name: &str, text: &str) -> Result<usize, failure::Error> {
+pub fn write_string(file_name: &str, text: &str) -> Result<usize, Box<Error>> {
   let path = &Path::new(&file_name);
   let mut inf = File::create(path)?;
   Ok(inf.write(text.as_bytes())?)

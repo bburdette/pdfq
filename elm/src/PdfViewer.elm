@@ -1,9 +1,5 @@
 module PdfViewer exposing (..)
 
--- import PdfList as PL
--- import File exposing (File)
--- import Task
-
 import Common exposing (buttonStyle)
 import Element as E exposing (Element)
 import Element.Background as EBg
@@ -11,17 +7,16 @@ import Element.Border as EB
 import Element.Font as EF
 import Element.Input as EI
 import Html exposing (Html)
-import Json.Decode as JD
-import Json.Encode as JE
 import PdfDoc as PD
 import PdfElement
+import PdfInfo exposing (PersistentState, encodePersistentState)
 import PublicInterface as PI
 
 
 type Transition listmodel
     = Viewer (Model listmodel)
     | ViewerSend (Model listmodel) PI.SendMsg
-    | List listmodel
+    | List listmodel PersistentState
 
 
 type alias Model listmodel =
@@ -34,14 +29,6 @@ type alias Model listmodel =
     }
 
 
-type alias PersistentState =
-    { pdfName : String
-    , zoom : Float
-    , page : Int
-    , pageCount : Int
-    }
-
-
 toPersistentState : Model a -> PersistentState
 toPersistentState model =
     { pdfName = model.pdfName
@@ -51,36 +38,24 @@ toPersistentState model =
     }
 
 
-decodePersistentState : JD.Decoder PersistentState
-decodePersistentState =
-    JD.map4 PersistentState
-        (JD.field "pdfName" JD.string)
-        (JD.field "zoom" JD.float)
-        (JD.field "page" JD.int)
-        (JD.field "pageCount" JD.int)
-
-
-encodePersistentState : PersistentState -> JE.Value
-encodePersistentState state =
-    JE.object
-        [ ( "pdf_name", JE.string state.pdfName )
-        , ( "zoom", JE.float state.zoom )
-        , ( "page", JE.int state.page )
-        , ( "pageCount", JE.int state.pageCount )
-        ]
-
-
 persist : Model a -> Transition a
 persist model =
     ViewerSend model (PI.SavePdfState (encodePersistentState (toPersistentState model)))
 
 
-init : PD.OpenedPdf -> a -> Model a
-init opdf listmod =
+init : Maybe PersistentState -> PD.OpenedPdf -> a -> Model a
+init mbps opdf listmod =
+    let
+        zoom =
+            mbps |> Maybe.map .zoom |> Maybe.withDefault 1.0
+
+        page =
+            mbps |> Maybe.map .page |> Maybe.withDefault 1
+    in
     { pdfName = opdf.pdfName
-    , zoom = 1.0
-    , zoomText = "1.0"
-    , page = 1
+    , zoom = zoom
+    , zoomText = String.fromFloat zoom
+    , page = page
     , pageCount = opdf.pageCount
     , listModel = listmod
     }
@@ -97,7 +72,7 @@ update : Msg -> Model a -> Transition a
 update msg model =
     case msg of
         SelectClick ->
-            List model.listModel
+            List model.listModel (toPersistentState model)
 
         ZoomChanged string ->
             persist

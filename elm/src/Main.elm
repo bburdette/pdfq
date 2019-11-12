@@ -55,8 +55,8 @@ update msg model =
                     , mkPublicHttpReq model.location sendmsg
                     )
 
-                PdfViewer.List listmodel ->
-                    ( { model | page = List listmodel }, Cmd.none )
+                PdfViewer.List listmodel state ->
+                    ( { model | page = List (PL.updateState listmodel state) }, Cmd.none )
 
         ( ListMsg lm, List mod ) ->
             case PL.update lm mod of

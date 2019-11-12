@@ -11,7 +11,7 @@ import Element.Input as EI
 import Json.Decode as JD
 import Json.Encode as JE
 import PdfDoc as PD
-import PdfInfo exposing (PdfInfo)
+import PdfInfo exposing (PdfInfo, PersistentState)
 import PdfViewer as PV
 import PublicInterface as PI
 import Time
@@ -36,6 +36,22 @@ type alias Model =
 type SortDirection
     = Up
     | Down
+
+
+updateState : Model -> PersistentState -> Model
+updateState model state =
+    { model
+        | pdfs =
+            List.map
+                (\pi ->
+                    if pi.fileName == state.pdfName then
+                        { pi | state = Just state }
+
+                    else
+                        pi
+                )
+                model.pdfs
+    }
 
 
 flipDirection : SortDirection -> SortDirection
@@ -142,7 +158,19 @@ update msg model =
         PDMsg pm ->
             case PD.update pm of
                 PD.Pdf openedpdf ->
-                    Viewer (PV.init openedpdf model)
+                    let
+                        state =
+                            U.first
+                                (\pi ->
+                                    if pi.fileName == openedpdf.pdfName then
+                                        pi.state
+
+                                    else
+                                        Nothing
+                                )
+                                model.pdfs
+                    in
+                    Viewer (PV.init state openedpdf model)
 
                 PD.Command cmd ->
                     ListCmd model (Cmd.map PDMsg cmd)

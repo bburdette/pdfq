@@ -1,8 +1,8 @@
 extern crate serde_json;
-use failure;
-use failure::Error;
 use serde_json::Value;
+use simple_error;
 use std::convert::TryInto;
+use std::error::Error;
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -38,6 +38,7 @@ struct PdfList {
 struct PdfInfo {
   last_read: Option<i64>,
   filename: String,
+  state: Option<PersistentState>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -45,10 +46,10 @@ struct PersistentState {
   pdf_name: String,
   zoom: f32,
   page: i32,
-  pageCount: i32,
+  page_count: i32,
 }
 
-fn pdfscan(pdfdir: &str) -> Result<std::vec::Vec<PdfInfo>, Error> {
+fn pdfscan(pdfdir: &str, statedir: &str) -> Result<std::vec::Vec<PdfInfo>, Box<Error>> {
   let p = Path::new(pdfdir);
 
   let mut v = Vec::new();
@@ -56,6 +57,23 @@ fn pdfscan(pdfdir: &str) -> Result<std::vec::Vec<PdfInfo>, Error> {
   if p.exists() {
     for fr in p.read_dir()? {
       let f = fr?;
+      let fname = f
+        .file_name()
+        .into_string()
+        .map_err(|e| format!("bad pdf filename: {:?}", f))?;
+
+      let spath = format!("{}/{}.state", statedir, fname);
+      let pst = Path::new(spath.as_str()).to_str().ok_or("invalid path")?;
+
+      let state: Option<PersistentState> = match util::load_string(pst) {
+        Err(_) => None,
+        Ok(s) => {
+          println!("loading state: {}", pst);
+          let ps: PersistentState = serde_json::from_str(s.as_str())?;
+          Some(ps)
+        }
+      };
+
       v.push(PdfInfo {
         filename: f
           .file_name()
@@ -74,6 +92,7 @@ fn pdfscan(pdfdir: &str) -> Result<std::vec::Vec<PdfInfo>, Error> {
             })
           })
           .ok(),
+        state: state,
       });
 
       // println!("eff {:?}", f);
@@ -91,12 +110,13 @@ pub fn process_public_json(
   pdfdir: &str,
   ip: &Option<&str>,
   msg: PublicMessage,
-) -> Result<Option<ServerResponse>, Error> {
+) -> Result<Option<ServerResponse>, Box<Error>> {
   match msg.what.as_str() {
     "getfilelist" => {
       let pl = PdfList {
-        pdfs: pdfscan(pdfdir)?,
+        pdfs: pdfscan(pdfdir, statedir)?,
       };
+      println!("pdflist: {:?}", pl);
       Ok(Some(ServerResponse {
         what: "filelist".to_string(),
         content: serde_json::to_value(pl)?,
@@ -104,18 +124,22 @@ pub fn process_public_json(
     }
     "savepdfstate" => {
       // write the pdfstate to the appropriate file.
-      msg.data.map_or(Ok(()), (|json| {
-        let ps: PersistentState = serde_json::from_value(json.clone())?;
-        util::write_string(
-          format!("{}/{}.state", statedir, ps.pdf_name).as_str(),
-          json.to_string().as_str(),
-        ).map(|_| ())
-      }))?;
+      msg.data.map_or(
+        Ok(()),
+        (|json| {
+          let ps: PersistentState = serde_json::from_value(json.clone())?;
+          util::write_string(
+            format!("{}/{}.state", statedir, ps.pdf_name).as_str(),
+            json.to_string().as_str(),
+          )
+          .map(|_| ())
+        }),
+      )?;
       Ok(Some(ServerResponse {
         what: "pdfstatesaved".to_string(),
         content: serde_json::Value::Null,
       }))
     }
-    wat => Err(failure::err_msg(format!("invalid 'what' code:'{}'", wat))),
+    wat => bail!(format!("invalid 'what' code:'{}'", wat)),
   }
 }
