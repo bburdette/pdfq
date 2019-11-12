@@ -68,7 +68,12 @@ update msg model =
                     ( { model | page = ErrorView <| EV.init e (List mod) }, Cmd.none )
 
         ( PdfDocMsg pdm, page ) ->
-            ( model, Cmd.none )
+            case page of
+                List mod ->
+                    update (ListMsg (PL.PDMsg pdm)) model
+
+                _ ->
+                    ( model, Cmd.none )
 
         ( ServerResponse sr, _ ) ->
             case sr of
@@ -85,21 +90,6 @@ update msg model =
 
         ( _, _ ) ->
             ( model, Cmd.none )
-
-
-
-{- let
-       plm =
-           model.listModel
-   in
-   ( { model
-       | listModel =
-           { plm | pdfs = lst }
-     }
-   , Cmd.none
-   )
-
--}
 
 
 view : Model -> Html Msg
