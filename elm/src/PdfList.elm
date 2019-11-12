@@ -26,14 +26,60 @@ type Transition
 type alias Model =
     { pdfs : List PdfInfo
     , location : String
+    , sortColumn : SortColumn
+    , sortDirection : SortDirection
     }
+
+
+type SortDirection
+    = Up
+    | Down
+
+
+flipDirection : SortDirection -> SortDirection
+flipDirection dir =
+    case dir of
+        Up ->
+            Down
+
+        Down ->
+            Up
+
+
+sort : Model -> Model
+sort model =
+    { model
+        | pdfs =
+            case ( model.sortColumn, model.sortDirection ) of
+                ( Date, Down ) ->
+                    List.sortBy (.lastRead >> Time.posixToMillis) model.pdfs
+                        |> List.reverse
+
+                ( Date, Up ) ->
+                    List.sortBy (.lastRead >> Time.posixToMillis) model.pdfs
+
+                ( Name, Down ) ->
+                    List.sortBy .fileName model.pdfs
+                        |> List.reverse
+
+                ( Name, Up ) ->
+                    List.sortBy .fileName model.pdfs
+    }
+
+
+type SortColumn
+    = Date
+    | Name
 
 
 init : List PdfInfo -> String -> Model
 init pdfs location =
-    { pdfs = pdfs
-    , location = location
-    }
+    sort
+        { pdfs = pdfs
+        , location = location
+        , sortColumn = Date
+        , sortDirection = Down
+        }
 
 
 type alias PdfInfo =
@@ -58,6 +104,7 @@ type Msg
     = Noop
     | OpenClick PdfInfo
     | PDMsg PD.Msg
+    | SortClick SortColumn
 
 
 view : Model -> Element Msg
@@ -74,17 +121,29 @@ view model =
                             , onPress = Just <| OpenClick pi
                             }
               }
-            , { header = E.text "Last Read"
+            , { header =
+                    EI.button buttonStyle
+                        { label = E.text "last read"
+                        , onPress = Just <| SortClick Date
+                        }
               , width = E.shrink
               , view =
                     \pi ->
-                        E.text <| U.dateToString (CA.fromPosix pi.lastRead)
+                        E.el [ E.centerY ] <|
+                            E.text <|
+                                U.dateToString (CA.fromPosix pi.lastRead)
               }
-            , { header = E.text "Name"
+            , { header =
+                    EI.button buttonStyle
+                        { label = E.text "name"
+                        , onPress = Just <| SortClick Name
+                        }
               , width = E.fill
               , view =
                     \pi ->
-                        E.text pi.fileName
+                        E.el [ E.centerY ] <|
+                            E.text
+                                pi.fileName
               }
             ]
         }
@@ -115,3 +174,10 @@ update msg model =
                     PD.openPdfUrl
                         pi.fileName
                         (model.location ++ "/pdfs/" ++ pi.fileName)
+
+        SortClick column ->
+            if column == model.sortColumn then
+                List <| sort { model | sortDirection = flipDirection model.sortDirection }
+
+            else
+                List <| sort { model | sortColumn = column, sortDirection = Down }
