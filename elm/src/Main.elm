@@ -50,6 +50,11 @@ update msg model =
                 PdfViewer.Viewer vmod ->
                     ( { model | page = Viewer vmod }, Cmd.none )
 
+                PdfViewer.ViewerSend vmod sendmsg ->
+                    ( { model | page = Viewer vmod }
+                    , mkPublicHttpReq model.location sendmsg
+                    )
+
                 PdfViewer.List listmodel ->
                     ( { model | page = List listmodel }, Cmd.none )
 
@@ -95,6 +100,9 @@ update msg model =
 
                         PI.FileListReceived lst ->
                             ( { model | page = List (PL.init lst model.location) }, Cmd.none )
+
+                        PI.PdfStateSaved ->
+                            ( model, Cmd.none )
 
         ( _, _ ) ->
             ( model, Cmd.none )

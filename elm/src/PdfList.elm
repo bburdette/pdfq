@@ -11,7 +11,9 @@ import Element.Input as EI
 import Json.Decode as JD
 import Json.Encode as JE
 import PdfDoc as PD
+import PdfInfo exposing (PdfInfo)
 import PdfViewer as PV
+import PublicInterface as PI
 import Time
 import Util as U
 
@@ -80,24 +82,6 @@ init pdfs location =
         , sortColumn = Date
         , sortDirection = Down
         }
-
-
-type alias PdfInfo =
-    { lastRead : Time.Posix
-    , fileName : String
-    }
-
-
-decodePdfInfo : JD.Decoder PdfInfo
-decodePdfInfo =
-    JD.map2 PdfInfo
-        (JD.field "last_read" (JD.int |> JD.map Time.millisToPosix))
-        (JD.field "filename" JD.string)
-
-
-decodePdfList : JD.Decoder (List PdfInfo)
-decodePdfList =
-    JD.field "pdfs" (JD.list decodePdfInfo)
 
 
 type Msg

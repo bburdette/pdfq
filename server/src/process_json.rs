@@ -40,6 +40,14 @@ struct PdfInfo {
   filename: String,
 }
 
+#[derive(Deserialize, Serialize, Debug)]
+struct PersistentState {
+  pdf_name: String,
+  zoom: f32,
+  page: i32,
+  pageCount: i32,
+}
+
 fn pdfscan(pdfdir: &str) -> Result<std::vec::Vec<PdfInfo>, Error> {
   let p = Path::new(pdfdir);
 
@@ -91,6 +99,20 @@ pub fn process_public_json(
       Ok(Some(ServerResponse {
         what: "filelist".to_string(),
         content: serde_json::to_value(pl)?,
+      }))
+    }
+    "savepdfstate" => {
+      // write the pdfstate to the appropriate file.
+      msg.data.map(|json| {
+        let ps: PersistentState = serde_json::from_value(json.clone())?;
+        util::write_string(
+          format!("{}.state", ps.pdf_name).as_str(),
+          json.to_string().as_str(),
+        )
+      });
+      Ok(Some(ServerResponse {
+        what: "pdfstatesaved".to_string(),
+        content: serde_json::Value::Null,
       }))
     }
     wat => Err(failure::err_msg(format!("invalid 'what' code:'{}'", wat))),

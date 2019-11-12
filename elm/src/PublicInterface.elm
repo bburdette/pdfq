@@ -2,20 +2,18 @@ module PublicInterface exposing (..)
 
 import Json.Decode as JD
 import Json.Encode as JE
-import PdfList
+import PdfInfo
 
 
 type SendMsg
     = GetFileList
+    | SavePdfState JE.Value
 
 
 type ServerResponse
     = ServerError String
-    | FileListReceived (List PdfList.PdfInfo)
-
-
-
--- | FileListReceived (Result JD.Error PdfList.PdfList)
+    | FileListReceived (List PdfInfo.PdfInfo)
+    | PdfStateSaved
 
 
 encodeSendMsg : SendMsg -> JE.Value
@@ -25,6 +23,12 @@ encodeSendMsg sm =
             JE.object
                 [ ( "what", JE.string "getfilelist" )
                 , ( "data", JE.null )
+                ]
+
+        SavePdfState state ->
+            JE.object
+                [ ( "what", JE.string "savepdfstate" )
+                , ( "data", state )
                 ]
 
 
@@ -37,8 +41,11 @@ decodeServerResponse =
                     "filelist" ->
                         JD.map FileListReceived
                             (JD.field "content"
-                                PdfList.decodePdfList
+                                PdfInfo.decodePdfList
                             )
+
+                    "pdfstatesaved" ->
+                        JD.succeed PdfStateSaved
 
                     wat ->
                         JD.succeed

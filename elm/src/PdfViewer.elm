@@ -1,6 +1,8 @@
 module PdfViewer exposing (..)
 
 -- import PdfList as PL
+-- import File exposing (File)
+-- import Task
 
 import Common exposing (buttonStyle)
 import Element as E exposing (Element)
@@ -8,18 +10,17 @@ import Element.Background as EBg
 import Element.Border as EB
 import Element.Font as EF
 import Element.Input as EI
-import File exposing (File)
-import File.Select as FS
 import Html exposing (Html)
 import Json.Decode as JD
 import Json.Encode as JE
 import PdfDoc as PD
 import PdfElement
-import Task
+import PublicInterface as PI
 
 
 type Transition listmodel
     = Viewer (Model listmodel)
+    | ViewerSend (Model listmodel) PI.SendMsg
     | List listmodel
 
 
@@ -37,7 +38,41 @@ type alias PersistentState =
     { pdfName : String
     , zoom : Float
     , page : Int
+    , pageCount : Int
     }
+
+
+toPersistentState : Model a -> PersistentState
+toPersistentState model =
+    { pdfName = model.pdfName
+    , zoom = model.zoom
+    , page = model.page
+    , pageCount = model.pageCount
+    }
+
+
+decodePersistentState : JD.Decoder PersistentState
+decodePersistentState =
+    JD.map4 PersistentState
+        (JD.field "pdfName" JD.string)
+        (JD.field "zoom" JD.float)
+        (JD.field "page" JD.int)
+        (JD.field "pageCount" JD.int)
+
+
+encodePersistentState : PersistentState -> JE.Value
+encodePersistentState state =
+    JE.object
+        [ ( "pdf_name", JE.string state.pdfName )
+        , ( "zoom", JE.float state.zoom )
+        , ( "page", JE.int state.page )
+        , ( "pageCount", JE.int state.pageCount )
+        ]
+
+
+persist : Model a -> Transition a
+persist model =
+    ViewerSend model (PI.SavePdfState (encodePersistentState (toPersistentState model)))
 
 
 init : PD.OpenedPdf -> a -> Model a
@@ -51,16 +86,6 @@ init opdf listmod =
     }
 
 
-
-{- toState : Model -> PersistentState
-   toState model =
-       { pdfName = model.pdfName
-       , zoom = model.zoom
-       , page = model.page
-       }
--}
-
-
 type Msg
     = SelectClick
     | PrevPage
@@ -68,24 +93,14 @@ type Msg
     | ZoomChanged String
 
 
-
-{- | OpenClick
-   OpenClick ->
-       -- uh, new state for the opening of a file?
-       -- or, (Transition, Cmd) ?
-       Viewer model
--}
-
-
 update : Msg -> Model a -> Transition a
 update msg model =
     case msg of
         SelectClick ->
-            -- transition back to pdflist state!
             List model.listModel
 
         ZoomChanged string ->
-            Viewer
+            persist
                 { model
                     | zoomText = string
                     , zoom = String.toFloat string |> Maybe.withDefault model.zoom
@@ -93,14 +108,14 @@ update msg model =
 
         PrevPage ->
             if model.page > 1 then
-                Viewer { model | page = model.page - 1 }
+                persist { model | page = model.page - 1 }
 
             else
                 Viewer model
 
         NextPage ->
             if model.page < model.pageCount then
-                Viewer { model | page = model.page + 1 }
+                persist { model | page = model.page + 1 }
 
             else
                 Viewer model
