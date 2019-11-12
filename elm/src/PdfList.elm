@@ -10,26 +10,30 @@ import Element.Font as EF
 import Element.Input as EI
 import Json.Decode as JD
 import Json.Encode as JE
+import PdfDoc as PD
+import PdfViewer as PV
 import Time
 import Util as U
 
 
-
-{- #[derive(Serialize, Debug)]
-   struct PdfList {
-     pdfs: Vec<PdfInfo>,
-   }
-
-   #[derive(Serialize, Debug)]
-   struct PdfInfo {
-     last_read: Option<SystemTime>,
-     filename: String,
-   }
--}
+type Transition
+    = List Model
+    | ListCmd Model (Cmd Msg)
+    | Viewer (PV.Model Model)
+    | Error String
 
 
 type alias Model =
-    { pdfs : List PdfInfo }
+    { pdfs : List PdfInfo
+    , location : String
+    }
+
+
+init : List PdfInfo -> String -> Model
+init pdfs location =
+    { pdfs = pdfs
+    , location = location
+    }
 
 
 type alias PdfInfo =
@@ -53,15 +57,18 @@ decodePdfList =
 type Msg
     = Noop
     | OpenClick PdfInfo
+    | PDMsg PD.Msg
 
 
-type Command
-    = None
-    | Open PdfInfo
+
+{- type Command
+   = None
+   | Open PdfInfo
+-}
 
 
 view : Model -> Element Msg
-view pdfs =
+view model =
     E.column [ E.width E.fill ] <|
         List.map
             (\pi ->
@@ -74,14 +81,40 @@ view pdfs =
                         }
                     ]
             )
-            pdfs.pdfs
+            model.pdfs
 
 
-update : Msg -> Model -> ( Model, Command )
+update : Msg -> Model -> Transition
 update msg model =
     case msg of
         Noop ->
-            ( model, None )
+            List model
+
+        PDMsg pm ->
+            case PD.update pm of
+                PD.Pdf openedpdf ->
+                    Viewer (PV.init openedpdf model)
+
+                PD.Command cmd ->
+                    ListCmd model (Cmd.map PDMsg cmd)
+
+                PD.Error e ->
+                    Error e
 
         OpenClick pi ->
-            ( model, Open pi )
+            ListCmd model <|
+                Cmd.map
+                    PDMsg
+                <|
+                    PD.openPdfUrl
+                        pi.fileName
+                        (model.location ++ "/pdfs/" ++ pi.fileName)
+
+
+
+{- Viewer
+   <|
+       PV.init pi
+           model
+           ( model, Open pi )
+-}

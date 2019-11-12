@@ -6,70 +6,71 @@ import Element.Background as EBg
 import Element.Border as EB
 import Element.Font as EF
 import Element.Input as EI
+import ErrorView as EV
 import File exposing (File)
 import File.Select as FS
 import Html exposing (Html)
 import Http
 import Json.Decode as JD
 import Json.Encode as JE
+import PdfDoc as PD
 import PdfElement
-import PdfList
+import PdfList as PL
 import PdfViewer
 import PublicInterface as PI
 import Task
 
 
 type Page
-    = View
-    | List
+    = Viewer (PdfViewer.Model PL.Model)
+    | List PL.Model
+    | Loading
+    | ErrorView (EV.Model Page)
 
 
 type alias Model =
-    { viewerModel : PdfViewer.Model
-    , listModel : PdfList.Model
-    , location : String
+    { location : String
     , page : Page
     }
 
 
 type Msg
     = ViewerMsg PdfViewer.Msg
-    | ListMsg PdfList.Msg
+    | ListMsg PL.Msg
+    | PdfDocMsg PD.Msg
+    | EVMsg EV.Msg
     | ServerResponse (Result Http.Error PI.ServerResponse)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    case msg of
-        ViewerMsg vm ->
-            let
-                ( vmod, vcmd ) =
-                    PdfViewer.update vm model.viewerModel
-            in
-            ( { model
-                | viewerModel = vmod
-                , page = View
-              }
-            , Cmd.map ViewerMsg vcmd
-            )
+    case ( msg, model.page ) of
+        ( ViewerMsg vm, Viewer mod ) ->
+            case PdfViewer.update vm mod of
+                PdfViewer.Viewer vmod ->
+                    ( { model | page = Viewer vmod }, Cmd.none )
 
-        ListMsg lm ->
-            let
-                ( lmod, lcmd ) =
-                    PdfList.update lm model.listModel
-            in
-            ( { model | listModel = lmod }
-            , case lcmd of
-                PdfList.None ->
-                    Cmd.none
+                PdfViewer.List listmodel ->
+                    ( { model | page = List listmodel }, Cmd.none )
 
-                PdfList.Open pi ->
-                    Cmd.map ViewerMsg <|
-                        PdfViewer.openPdfUrl pi.fileName
-                            (Debug.log "blah" <| model.location ++ "/pdfs/" ++ pi.fileName)
-            )
+        ( ListMsg lm, List mod ) ->
+            case PL.update lm mod of
+                PL.List nmod ->
+                    ( { model | page = List nmod }, Cmd.none )
 
-        ServerResponse sr ->
+                PL.ListCmd nmod lcmd ->
+                    ( { model | page = List nmod }, Cmd.map ListMsg lcmd )
+
+                PL.Viewer vmod ->
+                    ( { model | page = Viewer vmod }, Cmd.none )
+
+                PL.Error e ->
+                    ( { model | page = ErrorView <| EV.init e (List mod) }, Cmd.none )
+
+        ( PdfDocMsg pdm, page ) ->
+            ( model, Cmd.none )
+
+        ( ServerResponse sr, _ ) ->
             case sr of
                 Err e ->
                     ( model, Cmd.none )
@@ -80,16 +81,25 @@ update msg model =
                             ( model, Cmd.none )
 
                         PI.FileListReceived lst ->
-                            let
-                                plm =
-                                    model.listModel
-                            in
-                            ( { model
-                                | listModel =
-                                    { plm | pdfs = lst }
-                              }
-                            , Cmd.none
-                            )
+                            ( { model | page = List (PL.init lst model.location) }, Cmd.none )
+
+        ( _, _ ) ->
+            ( model, Cmd.none )
+
+
+
+{- let
+       plm =
+           model.listModel
+   in
+   ( { model
+       | listModel =
+           { plm | pdfs = lst }
+     }
+   , Cmd.none
+   )
+
+-}
 
 
 view : Model -> Html Msg
@@ -98,13 +108,19 @@ view model =
         []
     <|
         case model.page of
-            List ->
+            List mod ->
                 E.map ListMsg <|
-                    PdfList.view model.listModel
+                    PL.view mod
 
-            View ->
+            Viewer mod ->
                 E.map ViewerMsg <|
-                    PdfViewer.view model.viewerModel
+                    PdfViewer.view mod
+
+            Loading ->
+                E.text "loading"
+
+            ErrorView evm ->
+                E.map EVMsg <| EV.view evm
 
 
 type alias Flags =
@@ -122,10 +138,8 @@ mkPublicHttpReq location msg =
 
 init : Flags -> ( Model, Cmd Msg )
 init flags =
-    ( { viewerModel = PdfViewer.init
-      , listModel = { pdfs = [] }
-      , location = flags.location
-      , page = List
+    ( { location = flags.location
+      , page = Loading
       }
     , mkPublicHttpReq flags.location PI.GetFileList
     )
@@ -135,7 +149,7 @@ main : Program Flags Model Msg
 main =
     B.element
         { init = init
-        , subscriptions = \_ -> Sub.map ViewerMsg PdfViewer.pdfreceive
+        , subscriptions = \_ -> Sub.map PdfDocMsg PD.pdfreceive
         , view = view
         , update = update
         }
