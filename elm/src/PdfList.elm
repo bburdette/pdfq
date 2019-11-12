@@ -62,19 +62,32 @@ type Msg
 
 view : Model -> Element Msg
 view model =
-    E.column [ E.width E.fill, E.spacing 5 ] <|
-        List.map
-            (\pi ->
-                E.row [ E.width E.fill, E.spacing 5 ]
-                    [ EI.button buttonStyle
-                        { label = E.text "open"
-                        , onPress = Just <| OpenClick pi
-                        }
-                    , E.text <| U.dateToString (CA.fromPosix pi.lastRead)
-                    , E.text pi.fileName
-                    ]
-            )
-            model.pdfs
+    E.table [ E.width E.fill, E.spacing 5 ]
+        { data = model.pdfs
+        , columns =
+            [ { header = E.text ""
+              , width = E.shrink
+              , view =
+                    \pi ->
+                        EI.button buttonStyle
+                            { label = E.text "open"
+                            , onPress = Just <| OpenClick pi
+                            }
+              }
+            , { header = E.text "Last Read"
+              , width = E.shrink
+              , view =
+                    \pi ->
+                        E.text <| U.dateToString (CA.fromPosix pi.lastRead)
+              }
+            , { header = E.text "Name"
+              , width = E.fill
+              , view =
+                    \pi ->
+                        E.text pi.fileName
+              }
+            ]
+        }
 
 
 update : Msg -> Model -> Transition
