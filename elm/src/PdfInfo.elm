@@ -70,20 +70,6 @@ type alias PdfNotes =
     }
 
 
-testPn : PdfNotes
-testPn =
-    { pdfName = "test"
-    , notes = "test"
-    , pageNotes = Dict.fromList [ ( 1, "test" ), ( 2, "test" ), ( 3, "test" ), ( 4, "test" ) ]
-    }
-
-
-test : Result JD.Error PdfNotes
-test =
-    JD.decodeString decodePdfNotes
-        (JE.encode 2 (encodePdfNotes testPn))
-
-
 decodePdfNotes : JD.Decoder PdfNotes
 decodePdfNotes =
     JD.map3 PdfNotes
@@ -129,3 +115,17 @@ encodePdfNotes pn =
                 (Dict.toList pn.pageNotes)
           )
         ]
+
+
+testPn : PdfNotes
+testPn =
+    { pdfName = "test"
+    , notes = "test"
+    , pageNotes = Dict.fromList [ ( 1, "test" ), ( 2, "test" ), ( 3, "test" ), ( 4, "test" ) ]
+    }
+
+
+test : Result JD.Error PdfNotes
+test =
+    JD.decodeString decodePdfNotes
+        (JE.encode 2 (encodePdfNotes testPn))
