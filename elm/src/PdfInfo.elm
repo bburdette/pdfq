@@ -1,5 +1,6 @@
 module PdfInfo exposing (..)
 
+import Dict exposing (Dict)
 import Json.Decode as JD
 import Json.Encode as JE
 import Time
@@ -59,4 +60,66 @@ encodePersistentState state =
         , ( "page", JE.int state.page )
         , ( "page_count", JE.int state.pageCount )
         , ( "last_read", JE.int (Time.posixToMillis state.lastRead) )
+        ]
+
+
+type alias PdfNotes =
+    { pdfName : String
+    , notes : String
+    , pageNotes : Dict Int String
+    }
+
+
+test : PdfNotes
+test =
+    { pdfName = "test"
+    , notes = "test"
+    , pageNotes = Dict.fromList [ ( 1, "test" ), ( 2, "test" ), ( 3, "test" ), ( 4, "test" ) ]
+    }
+
+
+decodePdfNotes : JD.Decoder PdfNotes
+decodePdfNotes =
+    JD.map3 PdfNotes
+        (JD.field "pdf_name" JD.string)
+        (JD.field "notes" JD.string)
+        (JD.field "page_notes"
+            (JD.list (JD.list JD.string)
+                |> JD.andThen
+                    (\lst ->
+                        List.foldl
+                            (\elt out ->
+                                out
+                                    |> Maybe.andThen
+                                        (\listSoFar ->
+                                            case elt of
+                                                [ key, val ] ->
+                                                    String.toInt key
+                                                        |> Maybe.map
+                                                            (\k -> ( k, val ) :: listSoFar)
+
+                                                _ ->
+                                                    Nothing
+                                        )
+                            )
+                            (Just [])
+                            lst
+                            |> Maybe.map Dict.fromList
+                            |> Maybe.map JD.succeed
+                            |> Maybe.withDefault (JD.fail "failed to parse page notes")
+                    )
+            )
+        )
+
+
+encodePdfNotes : PdfNotes -> JE.Value
+encodePdfNotes pn =
+    JE.object
+        [ ( "pdf_name", JE.string pn.pdfName )
+        , ( "notes", JE.string pn.notes )
+        , ( "page_notes"
+          , JE.list
+                (\( i, v ) -> JE.list JE.string [ String.fromInt i, v ])
+                (Dict.toList pn.pageNotes)
+          )
         ]
