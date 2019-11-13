@@ -11,12 +11,13 @@ import PdfDoc as PD
 import PdfElement
 import PdfInfo exposing (PersistentState, encodePersistentState)
 import PublicInterface as PI
+import Time
 
 
 type Transition listmodel
     = Viewer (Model listmodel)
-    | ViewerSend (Model listmodel) PI.SendMsg
-    | List listmodel PersistentState
+    | ViewerPersist (Model listmodel) (Time.Posix -> PersistentState)
+    | List listmodel (Time.Posix -> PersistentState)
 
 
 type alias Model listmodel =
@@ -29,18 +30,19 @@ type alias Model listmodel =
     }
 
 
-toPersistentState : Model a -> PersistentState
-toPersistentState model =
+toPersistentState : Model a -> Time.Posix -> PersistentState
+toPersistentState model time =
     { pdfName = model.pdfName
     , zoom = model.zoom
     , page = model.page
     , pageCount = model.pageCount
+    , lastRead = time
     }
 
 
 persist : Model a -> Transition a
 persist model =
-    ViewerSend model (PI.SavePdfState (encodePersistentState (toPersistentState model)))
+    ViewerPersist model (toPersistentState model)
 
 
 init : Maybe PersistentState -> PD.OpenedPdf -> a -> Model a
@@ -148,15 +150,3 @@ view model =
                     ]
                 ]
             ]
-
-
-
-{- init : PersistentState -> Model
-   init =
-       { pdfName = Nothing
-       , zoom = 1.0
-       , zoomText = "1.0"
-       , page = 1
-       , pageCount = Nothing
-       }
--}

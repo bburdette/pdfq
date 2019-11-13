@@ -40,18 +40,22 @@ type SortDirection
 
 updateState : Model -> PersistentState -> Model
 updateState model state =
-    { model
-        | pdfs =
-            List.map
-                (\pi ->
-                    if pi.fileName == state.pdfName then
-                        { pi | state = Just state }
+    sort
+        { model
+            | pdfs =
+                List.map
+                    (\pi ->
+                        if pi.fileName == state.pdfName then
+                            { pi
+                                | state = Just state
+                                , lastRead = state.lastRead
+                            }
 
-                    else
-                        pi
-                )
-                model.pdfs
-    }
+                        else
+                            pi
+                    )
+                    model.pdfs
+        }
 
 
 flipDirection : SortDirection -> SortDirection
@@ -105,6 +109,7 @@ type Msg
     | OpenClick PdfInfo
     | PDMsg PD.Msg
     | SortClick SortColumn
+    | UpdatePState PersistentState
 
 
 view : Model -> Element Msg
@@ -193,3 +198,6 @@ update msg model =
 
             else
                 List <| sort { model | sortColumn = column, sortDirection = Down }
+
+        UpdatePState pstate ->
+            List (updateState model pstate)

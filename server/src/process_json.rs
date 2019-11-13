@@ -47,6 +47,7 @@ struct PersistentState {
   zoom: f32,
   page: i32,
   page_count: i32,
+  last_read: i64,
 }
 
 fn pdfscan(pdfdir: &str, statedir: &str) -> Result<std::vec::Vec<PdfInfo>, Box<Error>> {
@@ -116,7 +117,7 @@ pub fn process_public_json(
       let pl = PdfList {
         pdfs: pdfscan(pdfdir, statedir)?,
       };
-      println!("pdflist: {:?}", pl);
+      // println!("pdflist: {:?}", pl);
       Ok(Some(ServerResponse {
         what: "filelist".to_string(),
         content: serde_json::to_value(pl)?,

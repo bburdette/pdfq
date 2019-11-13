@@ -1,24 +1,17 @@
 module Main exposing (..)
 
 import Browser as B
-import Element as E exposing (Element)
-import Element.Background as EBg
-import Element.Border as EB
-import Element.Font as EF
-import Element.Input as EI
+import Element as E
 import ErrorView as EV
-import File exposing (File)
-import File.Select as FS
 import Html exposing (Html)
 import Http
-import Json.Decode as JD
-import Json.Encode as JE
 import PdfDoc as PD
-import PdfElement
+import PdfInfo
 import PdfList as PL
 import PdfViewer
 import PublicInterface as PI
 import Task
+import Time
 import Util
 
 
@@ -40,6 +33,7 @@ type Msg
     | ListMsg PL.Msg
     | PDMsg PD.Msg
     | EVMsg EV.Msg
+    | Naiow (Time.Posix -> Cmd Msg) Time.Posix
     | ServerResponse (Result Http.Error PI.ServerResponse)
 
 
@@ -51,13 +45,18 @@ update msg model =
                 PdfViewer.Viewer vmod ->
                     ( { model | page = Viewer vmod }, Cmd.none )
 
-                PdfViewer.ViewerSend vmod sendmsg ->
+                PdfViewer.ViewerPersist vmod mkpersist ->
                     ( { model | page = Viewer vmod }
-                    , mkPublicHttpReq model.location sendmsg
+                    , Task.perform
+                        (Naiow (\time -> mkPublicHttpReq model.location (PI.SavePdfState (PdfInfo.encodePersistentState (mkpersist time)))))
+                        Time.now
                     )
 
-                PdfViewer.List listmodel state ->
-                    ( { model | page = List (PL.updateState listmodel state) }, Cmd.none )
+                PdfViewer.List listmodel mkpstate ->
+                    ( { model | page = List listmodel }
+                    , Time.now
+                        |> Task.perform (\time -> ListMsg (PL.UpdatePState (mkpstate time)))
+                    )
 
         ( ListMsg lm, List mod ) ->
             case PL.update lm mod of
@@ -105,6 +104,9 @@ update msg model =
 
                         PI.PdfStateSaved ->
                             ( model, Cmd.none )
+
+        ( Naiow mkCmd time, _ ) ->
+            ( model, mkCmd time )
 
         ( _, _ ) ->
             ( model, Cmd.none )
