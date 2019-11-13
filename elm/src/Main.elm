@@ -19,6 +19,7 @@ import PdfList as PL
 import PdfViewer
 import PublicInterface as PI
 import Task
+import Util
 
 
 type Page
@@ -81,8 +82,9 @@ update msg model =
                     ( { model | page = pp }, Cmd.none )
 
         ( PDMsg pdm, page ) ->
+            -- route PDMsgs to the list model if its active.
             case page of
-                List mod ->
+                List _ ->
                     update (ListMsg (PL.PDMsg pdm)) model
 
                 _ ->
@@ -91,7 +93,7 @@ update msg model =
         ( ServerResponse sr, page ) ->
             case sr of
                 Err e ->
-                    ( model, Cmd.none )
+                    ( { model | page = ErrorView <| EV.init (Util.httpErrorString e) page }, Cmd.none )
 
                 Ok isr ->
                     case isr of
