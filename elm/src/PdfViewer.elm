@@ -1,6 +1,7 @@
 module PdfViewer exposing (..)
 
 import Common exposing (buttonStyle)
+import Dict
 import Element as E exposing (Element)
 import Element.Background as EBg
 import Element.Border as EB
@@ -9,15 +10,26 @@ import Element.Input as EI
 import Html exposing (Html)
 import PdfDoc as PD
 import PdfElement
-import PdfInfo exposing (PersistentState, encodePersistentState)
+import PdfInfo exposing (PdfNotes, PersistentState, encodePersistentState)
+import Process
 import PublicInterface as PI
+import Task
 import Time
 
 
 type Transition listmodel
     = Viewer (Model listmodel)
     | ViewerPersist (Model listmodel) (Time.Posix -> PersistentState)
+    | ViewerSaveNotes (Model listmodel) PdfNotes
     | List listmodel (Time.Posix -> PersistentState)
+
+
+type Msg
+    = SelectClick
+    | PrevPage
+    | NextPage
+    | ZoomChanged String
+    | NoteChanged String
 
 
 type alias Model listmodel =
@@ -27,7 +39,21 @@ type alias Model listmodel =
     , page : Int
     , pageCount : Int
     , listModel : listmodel -- we come from the List, and we return to the list.  I guess?
+    , notes : PdfNotes
     }
+
+
+
+{-
+
+   model
+     |> get .notes
+       (\notes ->
+         { model | notes = { notes | notes = { "edited " ++ notes.notes } } }
+
+   get = identity
+
+-}
 
 
 toPersistentState : Model a -> Time.Posix -> PersistentState
@@ -45,14 +71,22 @@ persist model =
     ViewerPersist model (toPersistentState model)
 
 
-init : Maybe PersistentState -> PD.OpenedPdf -> a -> Model a
-init mbps opdf listmod =
+init : Maybe PersistentState -> Maybe PdfNotes -> PD.OpenedPdf -> a -> Model a
+init mbps mbpdfn opdf listmod =
     let
         zoom =
             mbps |> Maybe.map .zoom |> Maybe.withDefault 1.0
 
         page =
             mbps |> Maybe.map .page |> Maybe.withDefault 1
+
+        pdfn =
+            mbpdfn
+                |> Maybe.withDefault
+                    { pdfName = opdf.pdfName
+                    , notes = ""
+                    , pageNotes = Dict.fromList []
+                    }
     in
     { pdfName = opdf.pdfName
     , zoom = zoom
@@ -60,14 +94,8 @@ init mbps opdf listmod =
     , page = page
     , pageCount = opdf.pageCount
     , listModel = listmod
+    , notes = pdfn
     }
-
-
-type Msg
-    = SelectClick
-    | PrevPage
-    | NextPage
-    | ZoomChanged String
 
 
 update : Msg -> Model a -> Transition a
@@ -97,6 +125,16 @@ update msg model =
             else
                 Viewer model
 
+        NoteChanged txt ->
+            let
+                notes =
+                    model.notes
+
+                updnotes =
+                    { notes | notes = txt }
+            in
+            ViewerSaveNotes { model | notes = updnotes } updnotes
+
 
 topBar : Model a -> Element Msg
 topBar model =
@@ -124,15 +162,29 @@ topBar model =
         ]
 
 
+notePanel : Model a -> Element Msg
+notePanel model =
+    E.column [ E.width <| E.px 300 ]
+        [ EI.multiline []
+            { onChange = NoteChanged
+            , text = model.notes.notes
+            , placeholder = Nothing
+            , label = EI.labelAbove [] <| E.text "notes"
+            , spellcheck = True
+            }
+        ]
+
+
 view : Model a -> Html Msg
 view model =
     E.layout
         [ E.inFront <| topBar model ]
     <|
         E.column [ E.spacing 5, E.width E.fill, E.alignTop ]
-            [ E.el [ E.transparent True ] <| topBar model
+            [ E.el [ E.transparent True ] <| topBar model -- just for spacing!
             , E.row [ E.width E.fill, E.alignTop ]
-                [ E.column
+                [ notePanel model
+                , E.column
                     [ E.width E.fill
                     , E.height E.fill
                     , E.alignTop

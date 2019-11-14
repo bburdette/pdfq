@@ -1,14 +1,16 @@
 module Main exposing (..)
 
 import Browser as B
+import Dict exposing (Dict)
 import Element as E
 import ErrorView as EV
 import Html exposing (Html)
 import Http
 import PdfDoc as PD
-import PdfInfo
+import PdfInfo exposing (PdfNotes)
 import PdfList as PL
 import PdfViewer
+import Process
 import PublicInterface as PI
 import Task
 import Time
@@ -25,6 +27,8 @@ type Page
 type alias Model =
     { location : String
     , page : Page
+    , saveNotes : Dict String ( Int, PdfNotes )
+    , saveNotesCount : Int
     }
 
 
@@ -35,6 +39,7 @@ type Msg
     | EVMsg EV.Msg
     | Naiow (Time.Posix -> Cmd Msg) Time.Posix
     | ServerResponse (Result Http.Error PI.ServerResponse)
+    | SaveNote String Int
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -50,6 +55,22 @@ update msg model =
                     , Task.perform
                         (Naiow (\time -> mkPublicHttpReq model.location (PI.SavePdfState (PdfInfo.encodePersistentState (mkpersist time)))))
                         Time.now
+                    )
+
+                PdfViewer.ViewerSaveNotes vmod notes ->
+                    let
+                        sq =
+                            model.saveNotes
+                    in
+                    ( { model
+                        | page = Viewer vmod
+                        , saveNotes = Dict.insert notes.pdfName ( model.saveNotesCount, notes ) model.saveNotes
+                        , saveNotesCount = model.saveNotesCount + 1
+                      }
+                    , -- N second delay before saving.
+                      Process.sleep 5000
+                        |> Task.perform
+                            (\_ -> SaveNote notes.pdfName model.saveNotesCount)
                     )
 
                 PdfViewer.List listmodel mkpstate ->
@@ -102,11 +123,44 @@ update msg model =
                         PI.FileListReceived lst ->
                             ( { model | page = List (PL.init lst model.location) }, Cmd.none )
 
+                        PI.NotesResponse _ ->
+                            ( { model | page = ErrorView <| EV.init "unexpected notes message" page }, Cmd.none )
+
                         PI.PdfStateSaved ->
+                            ( model, Cmd.none )
+
+                        PI.Noop ->
                             ( model, Cmd.none )
 
         ( Naiow mkCmd time, _ ) ->
             ( model, mkCmd time )
+
+        ( SaveNote pdfname count, _ ) ->
+            case Dict.get pdfname model.saveNotes of
+                Just ( dictcount, pdfnotes ) ->
+                    if dictcount == count then
+                        -- timer expired without additional user input.  send the save msg.
+                        let
+                            _ =
+                                Debug.log "saving to server: " pdfnotes
+                        in
+                        ( model, mkPublicHttpReq model.location (PI.SaveNotes pdfnotes) )
+
+                    else
+                        let
+                            _ =
+                                Debug.log "NOT saving to server " pdfnotes
+                        in
+                        -- there's a newer save reminder out there.  wait for that one instead.
+                        ( model, Cmd.none )
+
+                Nothing ->
+                    -- I guess it got saved already?  Can't save what we don't have I guess.
+                    let
+                        _ =
+                            Debug.log "Nothing here to save! for pdf: " pdfname
+                    in
+                    ( model, Cmd.none )
 
         ( _, _ ) ->
             ( model, Cmd.none )
@@ -157,6 +211,8 @@ init : Flags -> ( Model, Cmd Msg )
 init flags =
     ( { location = flags.location
       , page = Loading
+      , saveNotes = Dict.empty
+      , saveNotesCount = 0
       }
     , mkPublicHttpReq flags.location PI.GetFileList
     )

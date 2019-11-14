@@ -8,6 +8,7 @@ import Element.Background as EBg
 import Element.Border as EB
 import Element.Font as EF
 import Element.Input as EI
+import Http
 import Json.Decode as JD
 import Json.Encode as JE
 import PdfDoc as PD
@@ -30,6 +31,8 @@ type alias Model =
     , location : String
     , sortColumn : SortColumn
     , sortDirection : SortDirection
+    , opdf : Maybe PD.OpenedPdf
+    , notes : Maybe (Maybe PdfInfo.PdfNotes) -- 'Just Nothing' indicates no notes on server.
     }
 
 
@@ -101,6 +104,8 @@ init pdfs location =
         , location = location
         , sortColumn = Date
         , sortDirection = Down
+        , opdf = Nothing
+        , notes = Nothing
         }
 
 
@@ -110,6 +115,7 @@ type Msg
     | PDMsg PD.Msg
     | SortClick SortColumn
     | UpdatePState PersistentState
+    | ServerResponse (Result Http.Error PI.ServerResponse)
 
 
 view : Model -> Element Msg
@@ -154,6 +160,28 @@ view model =
         }
 
 
+checkOpen : Model -> Transition
+checkOpen model =
+    case ( model.opdf, model.notes ) of
+        ( Just opdf, Just notes ) ->
+            let
+                state =
+                    U.first
+                        (\pi ->
+                            if pi.fileName == opdf.pdfName then
+                                pi.state
+
+                            else
+                                Nothing
+                        )
+                        model.pdfs
+            in
+            Viewer (PV.init state notes opdf model)
+
+        _ ->
+            List model
+
+
 update : Msg -> Model -> Transition
 update msg model =
     case msg of
@@ -163,19 +191,7 @@ update msg model =
         PDMsg pm ->
             case PD.update pm of
                 PD.Pdf openedpdf ->
-                    let
-                        state =
-                            U.first
-                                (\pi ->
-                                    if pi.fileName == openedpdf.pdfName then
-                                        pi.state
-
-                                    else
-                                        Nothing
-                                )
-                                model.pdfs
-                    in
-                    Viewer (PV.init state openedpdf model)
+                    checkOpen { model | opdf = Just openedpdf }
 
                 PD.Command cmd ->
                     ListCmd model (Cmd.map PDMsg cmd)
@@ -183,14 +199,43 @@ update msg model =
                 PD.Error e ->
                     Error e
 
+        ServerResponse sr ->
+            case sr of
+                Err e ->
+                    Error (U.httpErrorString e)
+
+                Ok isr ->
+                    case isr of
+                        PI.ServerError e ->
+                            Error e
+
+                        PI.FileListReceived _ ->
+                            Error "Unexpected file list message"
+
+                        PI.NotesResponse mbnotes ->
+                            let
+                                _ =
+                                    Debug.log "notespresonsadf: " mbnotes
+                            in
+                            checkOpen { model | notes = Just mbnotes }
+
+                        PI.PdfStateSaved ->
+                            List model
+
+                        PI.Noop ->
+                            List model
+
         OpenClick pi ->
             ListCmd model <|
-                Cmd.map
-                    PDMsg
-                <|
-                    PD.openPdfUrl
-                        pi.fileName
-                        (model.location ++ "/pdfs/" ++ pi.fileName)
+                Cmd.batch
+                    [ Cmd.map
+                        PDMsg
+                      <|
+                        PD.openPdfUrl
+                            pi.fileName
+                            (model.location ++ "/pdfs/" ++ pi.fileName)
+                    , mkPublicHttpReq model.location (PI.GetNotes pi.fileName)
+                    ]
 
         SortClick column ->
             if column == model.sortColumn then
@@ -201,3 +246,12 @@ update msg model =
 
         UpdatePState pstate ->
             List (updateState model pstate)
+
+
+mkPublicHttpReq : String -> PI.SendMsg -> Cmd Msg
+mkPublicHttpReq location msg =
+    Http.post
+        { url = location ++ "/public"
+        , body = Http.jsonBody (PI.encodeSendMsg msg)
+        , expect = Http.expectJson ServerResponse PI.decodeServerResponse
+        }

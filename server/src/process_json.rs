@@ -23,7 +23,7 @@ pub struct Message {
   data: Option<serde_json::Value>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ServerResponse {
   pub what: String,
   pub content: Value,
@@ -39,6 +39,13 @@ struct PdfInfo {
   last_read: Option<i64>,
   filename: String,
   state: Option<PersistentState>,
+}
+
+#[derive(Deserialize, Debug)]
+struct PdfNotes {
+  pdf_name: String, // we only need the name!
+                    // notes: String,
+                    // page_notes: map int -> string,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -111,7 +118,7 @@ pub fn process_public_json(
   pdfdir: &str,
   ip: &Option<&str>,
   msg: PublicMessage,
-) -> Result<Option<ServerResponse>, Box<Error>> {
+) -> Result<Option<ServerResponse>, Box<dyn Error>> {
   match msg.what.as_str() {
     "getfilelist" => {
       let pl = PdfList {
@@ -141,6 +148,59 @@ pub fn process_public_json(
         content: serde_json::Value::Null,
       }))
     }
+    "getnotes" => {
+      // read the notes file, or if none exists return null.
+      msg.data.map_or(
+        Ok(None),
+        (|json| {
+          let pdfname: String = serde_json::from_value(json.clone())?;
+          let blah = util::load_string(format!("{}/{}.notes", statedir, pdfname).as_str())
+            .and_then(|s| {
+              serde_json::from_str(s.as_str())
+                .and_then(|v| {
+                  println!("loaded");
+                  Ok(Some(ServerResponse {
+                    what: "notesresponse".to_string(),
+                    content: v,
+                  }))
+                })
+                .or_else(|e| {
+                  println!("json fail {}", e);
+                  Ok(Some(ServerResponse {
+                    what: "notesresponse".to_string(),
+                    content: serde_json::Value::Null,
+                  }))
+                })
+            })
+            .or_else(|e|{
+              println!("load fail {}", e);
+              Ok(Some(ServerResponse {
+                what: "notesresponse".to_string(),
+                content: serde_json::Value::Null,
+              }))
+            });
+          println!("blah {:?}", blah);
+          blah
+        }),
+      )
+    }
+    "savenotes" => msg.data.map_or(Ok(None), |json| {
+      let pdfnotes: PdfNotes = serde_json::from_value(json.clone())?;
+      util::write_string(
+        format!("{}/{}.notes", statedir, pdfnotes.pdf_name).as_str(),
+        json.to_string().as_str(),
+      )
+      .and_then(|_| {
+        Ok(Some(ServerResponse {
+          what: "notesaved".to_string(),
+          content: serde_json::Value::Null,
+        }))
+      })
+      .or(Ok(Some(ServerResponse {
+        what: "notessavefailed".to_string(),
+        content: serde_json::Value::Null,
+      })))
+    }),
     wat => bail!(format!("invalid 'what' code:'{}'", wat)),
   }
 }
