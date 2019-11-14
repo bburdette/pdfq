@@ -213,10 +213,6 @@ update msg model =
                             Error "Unexpected file list message"
 
                         PI.NotesResponse mbnotes ->
-                            let
-                                _ =
-                                    Debug.log "notespresonsadf: " mbnotes
-                            in
                             checkOpen { model | notes = Just mbnotes }
 
                         PI.PdfStateSaved ->

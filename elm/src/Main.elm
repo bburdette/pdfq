@@ -123,7 +123,7 @@ update msg model =
                         PI.FileListReceived lst ->
                             ( { model | page = List (PL.init lst model.location) }, Cmd.none )
 
-                        PI.NotesResponse _ ->
+                        PI.NotesResponse nr ->
                             ( { model | page = ErrorView <| EV.init "unexpected notes message" page }, Cmd.none )
 
                         PI.PdfStateSaved ->

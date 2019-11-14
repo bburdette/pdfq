@@ -86,9 +86,3 @@ decodeServerResponse =
                         JD.succeed
                             (ServerError ("invalid 'what' from server: " ++ wat))
             )
-
-
-test =
-    """
-{"what":"notesresponse","content":{"notes":"dasdfasdfasmeh","page_notes":[],"pdf_name":"category-theory-for-programmers.pdf"}}
-"""

@@ -164,12 +164,20 @@ topBar model =
 
 notePanel : Model a -> Element Msg
 notePanel model =
-    E.column [ E.width <| E.px 300 ]
-        [ EI.multiline []
+    E.column
+        [ E.width <| E.px 300
+        , EBg.color <| E.rgb 0.4 0.4 0.4
+        , E.spacing 10
+        , E.padding 10
+        , E.scrollbarY
+        , E.alignTop
+        , E.height <| E.fill
+        ]
+        [ EI.multiline [ E.alignTop, E.scrollbarY ]
             { onChange = NoteChanged
             , text = model.notes.notes
             , placeholder = Nothing
-            , label = EI.labelAbove [] <| E.text "notes"
+            , label = EI.labelAbove [ E.alignTop ] <| E.text "notes"
             , spellcheck = True
             }
         ]
@@ -178,27 +186,35 @@ notePanel model =
 view : Model a -> Html Msg
 view model =
     E.layout
-        [ E.inFront <| topBar model ]
+        [ E.inFront <|
+            E.column []
+                [ E.el [ E.transparent True ] <| topBar model -- just for spacing!
+                , notePanel model
+                ]
+        , E.inFront <| topBar model
+        ]
     <|
-        E.column [ E.spacing 5, E.width E.fill, E.alignTop ]
+        E.column [ E.spacing 5, E.width E.fill, E.alignTop, E.height E.fill ]
             [ E.el [ E.transparent True ] <| topBar model -- just for spacing!
             , E.row [ E.width E.fill, E.alignTop ]
-                [ notePanel model
-                , E.column
-                    [ E.width E.fill
-                    , E.height E.fill
-                    , E.alignTop
-                    , E.paddingXY 5 0
-                    ]
-                    [ E.el
-                        [ E.width E.shrink
-                        , E.centerX
-                        , EB.width 5
+                [ E.el [ E.transparent True ] <| notePanel model
+                , E.column [ E.height E.fill, E.width E.fill, E.alignTop ]
+                    [ E.column
+                        [ E.width E.fill
                         , E.alignTop
+                        , E.paddingXY 0 0
+                        , E.height E.shrink
                         ]
-                      <|
-                        E.html <|
-                            PdfElement.pdfPage model.pdfName model.page (PdfElement.Scale model.zoom)
+                        [ E.el
+                            [ E.width E.shrink
+                            , E.centerX
+                            , EB.width 3
+                            , E.alignTop
+                            ]
+                          <|
+                            E.html <|
+                                PdfElement.pdfPage model.pdfName model.page (PdfElement.Scale model.zoom)
+                        ]
                     ]
                 ]
             ]
