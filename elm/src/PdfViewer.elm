@@ -43,19 +43,6 @@ type alias Model listmodel =
     }
 
 
-
-{-
-
-   model
-     |> get .notes
-       (\notes ->
-         { model | notes = { notes | notes = { "edited " ++ notes.notes } } }
-
-   get = identity
-
--}
-
-
 toPersistentState : Model a -> Time.Posix -> PersistentState
 toPersistentState model time =
     { pdfName = model.pdfName
@@ -169,7 +156,6 @@ notePanel model =
         , EBg.color <| E.rgb 0.4 0.4 0.4
         , E.spacing 10
         , E.padding 10
-        , E.scrollbarY
         , E.alignTop
         , E.height <| E.fill
         ]
@@ -186,35 +172,35 @@ notePanel model =
 view : Model a -> Html Msg
 view model =
     E.layout
-        [ E.inFront <|
-            E.column []
-                [ E.el [ E.transparent True ] <| topBar model -- just for spacing!
-                , notePanel model
-                ]
-        , E.inFront <| topBar model
+        [ E.height E.fill
+        , E.width E.fill
         ]
     <|
-        E.column [ E.spacing 5, E.width E.fill, E.alignTop, E.height E.fill ]
-            [ E.el [ E.transparent True ] <| topBar model -- just for spacing!
-            , E.row [ E.width E.fill, E.alignTop ]
-                [ E.el [ E.transparent True ] <| notePanel model
-                , E.column [ E.height E.fill, E.width E.fill, E.alignTop ]
-                    [ E.column
-                        [ E.width E.fill
+        E.column
+            [ E.width E.fill
+            , E.height E.fill
+            ]
+            [ topBar model
+            , E.row [ E.width E.fill, E.height E.fill, E.scrollbarY ]
+                [ E.column [ E.width <| E.px 307, E.height E.fill, E.scrollbarY ]
+                    [ notePanel model
+                    ]
+                , E.column
+                    [ E.width E.fill
+                    , E.alignTop
+                    , E.paddingXY 0 0
+                    , E.height E.fill
+                    , E.scrollbarY
+                    ]
+                    [ E.el
+                        [ E.width E.shrink
+                        , E.centerX
+                        , EB.width 3
                         , E.alignTop
-                        , E.paddingXY 0 0
-                        , E.height E.shrink
                         ]
-                        [ E.el
-                            [ E.width E.shrink
-                            , E.centerX
-                            , EB.width 3
-                            , E.alignTop
-                            ]
-                          <|
-                            E.html <|
-                                PdfElement.pdfPage model.pdfName model.page (PdfElement.Scale model.zoom)
-                        ]
+                      <|
+                        E.html <|
+                            PdfElement.pdfPage model.pdfName model.page (PdfElement.Scale model.zoom)
                     ]
                 ]
             ]
