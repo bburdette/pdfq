@@ -153,7 +153,7 @@ topBar model =
 notePanel : Model a -> Element Msg
 notePanel model =
     E.column
-        [ E.width <| E.px 300
+        [ E.width <| E.px 400
         , EBg.color <| E.rgb 0.4 0.4 0.4
         , E.spacing 10
         , E.padding 10
