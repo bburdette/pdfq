@@ -222,7 +222,7 @@ update msg model =
                             List model
 
         OpenClick pi ->
-            ListCmd model <|
+            ListCmd { model | notes = Nothing, opdf = Nothing } <|
                 Cmd.batch
                     [ Cmd.map
                         PDMsg
