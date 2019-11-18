@@ -11,11 +11,28 @@ import Element.Border as Border
 import Element.Events exposing (onClick)
 import Element.Font as Font
 import Element.Input as Input
+import Html.Attributes
 import Http
 import Json.Decode as JD
 import Json.Encode as JE
 import Time exposing (Posix)
 import Time.Extra as TE
+
+
+scrollbarYEl : List (Attribute msg) -> Element msg -> Element msg
+scrollbarYEl attrs body =
+    el [ height fill, width fill ] <|
+        el
+            ([ htmlAttribute <| Html.Attributes.style "position" "absolute"
+             , htmlAttribute <| Html.Attributes.style "top" "0"
+             , htmlAttribute <| Html.Attributes.style "right" "0"
+             , htmlAttribute <| Html.Attributes.style "bottom" "0"
+             , htmlAttribute <| Html.Attributes.style "left" "0"
+             , scrollbarY
+             ]
+                ++ attrs
+            )
+            body
 
 
 type alias Size =

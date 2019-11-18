@@ -15,6 +15,7 @@ import Process
 import PublicInterface as PI
 import Task
 import Time
+import Util
 
 
 type Transition listmodel
@@ -157,15 +158,18 @@ notePanel model =
         , E.spacing 10
         , E.padding 10
         , E.alignTop
-        , E.height <| E.fill
+        , E.height E.fill
         ]
-        [ EI.multiline [ E.alignTop, E.scrollbarY ]
-            { onChange = NoteChanged
-            , text = model.notes.notes
-            , placeholder = Nothing
-            , label = EI.labelAbove [ E.alignTop ] <| E.text "notes"
-            , spellcheck = True
-            }
+        [ Util.scrollbarYEl [] <|
+            EI.multiline
+                [ E.alignTop
+                ]
+                { onChange = NoteChanged
+                , text = model.notes.notes
+                , placeholder = Nothing
+                , label = EI.labelHidden "notes"
+                , spellcheck = True
+                }
         ]
 
 
@@ -182,9 +186,7 @@ view model =
             ]
             [ topBar model
             , E.row [ E.width E.fill, E.height E.fill, E.scrollbarY ]
-                [ E.column [ E.width <| E.px 307, E.height E.fill, E.scrollbarY ]
-                    [ notePanel model
-                    ]
+                [ notePanel model
                 , E.column
                     [ E.width E.fill
                     , E.alignTop
