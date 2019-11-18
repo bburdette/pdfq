@@ -140,26 +140,14 @@ update msg model =
                 Just ( dictcount, pdfnotes ) ->
                     if dictcount == count then
                         -- timer expired without additional user input.  send the save msg.
-                        let
-                            _ =
-                                Debug.log "saving to server: " pdfnotes
-                        in
                         ( model, mkPublicHttpReq model.location (PI.SaveNotes pdfnotes) )
 
                     else
-                        let
-                            _ =
-                                Debug.log "NOT saving to server " pdfnotes
-                        in
                         -- there's a newer save reminder out there.  wait for that one instead.
                         ( model, Cmd.none )
 
                 Nothing ->
                     -- I guess it got saved already?  Can't save what we don't have I guess.
-                    let
-                        _ =
-                            Debug.log "Nothing here to save! for pdf: " pdfname
-                    in
                     ( model, Cmd.none )
 
         ( _, _ ) ->
