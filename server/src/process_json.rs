@@ -148,6 +148,42 @@ pub fn process_public_json(
         content: serde_json::Value::Null,
       }))
     }
+    "savelaststate" => {
+      println!("savelaststate");
+      // write the pdfstate to the appropriate file.
+      msg.data.map_or(
+        Ok(()),
+        (|json| {
+          util::write_string(
+            format!("{}/laststate", statedir).as_str(),
+            json.to_string().as_str(),
+          )
+          .map(|_| ())
+        }),
+      )?;
+      Ok(Some(ServerResponse {
+        what: "laststatesaved".to_string(),
+        content: serde_json::Value::Null,
+      }))
+    }
+    "getlaststate" => {
+      util::load_string(format!("{}/laststate", statedir).as_str()).and_then(|statestring| {
+        serde_json::from_str(statestring.as_str())
+          .and_then(|v| {
+            Ok(Some(ServerResponse {
+              what: "laststate".to_string(),
+              content: v,
+            }))
+          })
+          .or_else(|e| {
+            println!("json fail {}", e);
+            Ok(Some(ServerResponse {
+              what: "laststate".to_string(),
+              content: serde_json::Value::Null,
+            }))
+          })
+      })
+    }
     "getnotes" => {
       // read the notes file, or if none exists return null.
       msg.data.map_or(
@@ -172,7 +208,7 @@ pub fn process_public_json(
                   }))
                 })
             })
-            .or_else(|e|{
+            .or_else(|e| {
               println!("load fail {}", e);
               Ok(Some(ServerResponse {
                 what: "notesresponse".to_string(),

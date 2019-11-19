@@ -6,6 +6,44 @@ import Json.Encode as JE
 import Time
 
 
+type LastState
+    = LsViewer String
+    | LsList
+
+
+encodeLastState : LastState -> JE.Value
+encodeLastState ls =
+    case ls of
+        LsViewer pdfn ->
+            JE.object
+                [ ( "state", JE.string "viewer" )
+                , ( "pdfname", JE.string pdfn )
+                ]
+
+        LsList ->
+            JE.object
+                [ ( "state", JE.string "list" )
+                ]
+
+
+decodeLastState : JD.Decoder LastState
+decodeLastState =
+    JD.field "state" JD.string
+        |> JD.andThen
+            (\state ->
+                case state of
+                    "viewer" ->
+                        JD.map LsViewer
+                            (JD.field "pdfname" JD.string)
+
+                    "list" ->
+                        JD.succeed LsList
+
+                    _ ->
+                        JD.fail <| "unknown state type: " ++ state
+            )
+
+
 type alias PdfInfo =
     { lastRead : Time.Posix
     , fileName : String

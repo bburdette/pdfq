@@ -7,7 +7,7 @@ import ErrorView as EV
 import Html exposing (Html)
 import Http
 import PdfDoc as PD
-import PdfInfo exposing (PdfNotes)
+import PdfInfo exposing (LastState(..), PdfNotes)
 import PdfList as PL
 import PdfViewer
 import Process
@@ -20,7 +20,7 @@ import Util
 type Page
     = Viewer (PdfViewer.Model PL.Model)
     | List PL.Model
-    | Loading
+    | Loading (Maybe LastState)
     | ErrorView (EV.Model Page)
 
 
@@ -58,10 +58,6 @@ update msg model =
                     )
 
                 PdfViewer.ViewerSaveNotes vmod notes ->
-                    let
-                        sq =
-                            model.saveNotes
-                    in
                     ( { model
                         | page = Viewer vmod
                         , saveNotes = Dict.insert notes.pdfName ( model.saveNotesCount, notes ) model.saveNotes
@@ -74,10 +70,11 @@ update msg model =
                     )
 
                 PdfViewer.List listmodel mkpstate ->
-                    ( { model | page = List listmodel }
-                    , Time.now
-                        |> Task.perform (\time -> ListMsg (PL.UpdatePState (mkpstate time)))
-                    )
+                    addLastStateCmd
+                        ( { model | page = List listmodel }
+                        , Time.now
+                            |> Task.perform (\time -> ListMsg (PL.UpdatePState (mkpstate time)))
+                        )
 
         ( ListMsg lm, List mod ) ->
             case PL.update lm mod of
@@ -88,7 +85,8 @@ update msg model =
                     ( { model | page = List nmod }, Cmd.map ListMsg lcmd )
 
                 PL.Viewer vmod ->
-                    ( { model | page = Viewer vmod }, Cmd.none )
+                    addLastStateCmd
+                        ( { model | page = Viewer vmod }, Cmd.none )
 
                 PL.Error e ->
                     ( { model | page = ErrorView <| EV.init e (List mod) }, Cmd.none )
@@ -121,7 +119,39 @@ update msg model =
                             ( { model | page = ErrorView <| EV.init e page }, Cmd.none )
 
                         PI.FileListReceived lst ->
-                            ( { model | page = List (PL.init lst model.location) }, Cmd.none )
+                            let
+                                mbpdfname =
+                                    case model.page of
+                                        Loading (Just (LsViewer pdfname)) ->
+                                            Just pdfname
+
+                                        _ ->
+                                            Nothing
+
+                                ( lm, lcmd ) =
+                                    PL.init lst model.location mbpdfname
+                            in
+                            case mbpdfname of
+                                Nothing ->
+                                    addLastStateCmd
+                                        ( { model | page = List lm }
+                                        , Cmd.map ListMsg lcmd
+                                        )
+
+                                Just _ ->
+                                    ( { model | page = List lm }
+                                    , Cmd.map ListMsg lcmd
+                                    )
+
+                        PI.LastStateReceived ls ->
+                            case page of
+                                Loading mbls ->
+                                    ( { model | page = Loading (Just ls) }
+                                    , mkPublicHttpReq model.location PI.GetFileList
+                                    )
+
+                                _ ->
+                                    ( model, Cmd.none )
 
                         PI.NotesResponse nr ->
                             ( { model | page = ErrorView <| EV.init "unexpected notes message" page }, Cmd.none )
@@ -168,7 +198,7 @@ view model =
             Html.map ViewerMsg <|
                 PdfViewer.view mod
 
-        Loading ->
+        Loading _ ->
             E.layout
                 []
             <|
@@ -198,11 +228,11 @@ mkPublicHttpReq location msg =
 init : Flags -> ( Model, Cmd Msg )
 init flags =
     ( { location = flags.location
-      , page = Loading
+      , page = Loading Nothing
       , saveNotes = Dict.empty
       , saveNotesCount = 0
       }
-    , mkPublicHttpReq flags.location PI.GetFileList
+    , mkPublicHttpReq flags.location PI.GetLastState
     )
 
 
@@ -214,3 +244,33 @@ main =
         , view = view
         , update = update
         }
+
+
+toLastState : Model -> Maybe LastState
+toLastState model =
+    case model.page of
+        Viewer vmod ->
+            Just <|
+                LsViewer vmod.pdfName
+
+        List _ ->
+            Just <|
+                LsList
+
+        _ ->
+            Nothing
+
+
+addLastStateCmd : ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
+addLastStateCmd ( model, cmd ) =
+    ( model
+    , Cmd.batch
+        [ cmd
+        , toLastState model
+            |> Maybe.map
+                (\ls ->
+                    mkPublicHttpReq model.location (PI.SaveLastState ls)
+                )
+            |> Maybe.withDefault Cmd.none
+        ]
+    )

@@ -97,16 +97,37 @@ type SortColumn
     | Name
 
 
-init : List PdfInfo -> String -> Model
-init pdfs location =
-    sort
-        { pdfs = pdfs
-        , location = location
-        , sortColumn = Date
-        , sortDirection = Down
-        , opdf = Nothing
-        , notes = Nothing
-        }
+init : List PdfInfo -> String -> Maybe String -> ( Model, Cmd Msg )
+init pdfs location mbpdfname =
+    let
+        model =
+            sort
+                { pdfs = pdfs
+                , location = location
+                , sortColumn = Date
+                , sortDirection = Down
+                , opdf = Nothing
+                , notes = Nothing
+                }
+    in
+    ( model
+    , mbpdfname
+        |> Maybe.map (openPdfCmd model)
+        |> Maybe.withDefault Cmd.none
+    )
+
+
+openPdfCmd : Model -> String -> Cmd Msg
+openPdfCmd model pdfname =
+    Cmd.batch
+        [ Cmd.map
+            PDMsg
+          <|
+            PD.openPdfUrl
+                pdfname
+                (model.location ++ "/pdfs/" ++ pdfname)
+        , mkPublicHttpReq model.location (PI.GetNotes pdfname)
+        ]
 
 
 type Msg
@@ -212,6 +233,9 @@ update msg model =
                         PI.FileListReceived _ ->
                             Error "Unexpected file list message"
 
+                        PI.LastStateReceived _ ->
+                            Error "Unexpected last state message"
+
                         PI.NotesResponse mbnotes ->
                             checkOpen { model | notes = Just mbnotes }
 
@@ -222,16 +246,12 @@ update msg model =
                             List model
 
         OpenClick pi ->
-            ListCmd { model | notes = Nothing, opdf = Nothing } <|
-                Cmd.batch
-                    [ Cmd.map
-                        PDMsg
-                      <|
-                        PD.openPdfUrl
-                            pi.fileName
-                            (model.location ++ "/pdfs/" ++ pi.fileName)
-                    , mkPublicHttpReq model.location (PI.GetNotes pi.fileName)
-                    ]
+            let
+                nm =
+                    { model | notes = Nothing, opdf = Nothing }
+            in
+            ListCmd nm <|
+                openPdfCmd nm pi.fileName
 
         SortClick column ->
             if column == model.sortColumn then
