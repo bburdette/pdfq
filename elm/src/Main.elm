@@ -145,8 +145,8 @@ update msg model =
 
                         PI.LastStateReceived ls ->
                             case page of
-                                Loading mbls ->
-                                    ( { model | page = Loading (Just ls) }
+                                Loading _ ->
+                                    ( { model | page = Loading ls }
                                     , mkPublicHttpReq model.location PI.GetFileList
                                     )
 

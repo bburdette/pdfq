@@ -166,10 +166,12 @@ pub fn process_public_json(
         content: serde_json::Value::Null,
       }))
     }
-    "getlaststate" => {
-      util::load_string(format!("{}/laststate", statedir).as_str()).and_then(|statestring| {
+    "getlaststate" => util::load_string(format!("{}/laststate", statedir).as_str())
+      .and_then(|statestring| {
+        println!("statestring: {}", statestring);
         serde_json::from_str(statestring.as_str())
           .and_then(|v| {
+            println!("json success {}", v);
             Ok(Some(ServerResponse {
               what: "laststate".to_string(),
               content: v,
@@ -183,7 +185,13 @@ pub fn process_public_json(
             }))
           })
       })
-    }
+      .or_else(|e| {
+        println!("not found {}", e);
+        Ok(Some(ServerResponse {
+          what: "laststate".to_string(),
+          content: serde_json::Value::Null,
+        }))
+      }),
     "getnotes" => {
       // read the notes file, or if none exists return null.
       msg.data.map_or(

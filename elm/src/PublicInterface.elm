@@ -19,7 +19,7 @@ type ServerResponse
     | FileListReceived (List PdfInfo.PdfInfo)
     | NotesResponse (Maybe PdfInfo.PdfNotes)
     | PdfStateSaved
-    | LastStateReceived LastState
+    | LastStateReceived (Maybe LastState)
     | Noop
 
 
@@ -80,10 +80,11 @@ decodeServerResponse =
                             _ =
                                 Debug.log "laststaet:" "decode"
                         in
-                        JD.map LastStateReceived
-                            (JD.field "content"
-                                PdfInfo.decodeLastState
-                            )
+                        JD.map LastStateReceived <|
+                            JD.maybe
+                                (JD.field "content"
+                                    PdfInfo.decodeLastState
+                                )
 
                     "laststatesaved" ->
                         JD.succeed Noop
