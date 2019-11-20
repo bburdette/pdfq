@@ -76,10 +76,6 @@ decodeServerResponse =
                             )
 
                     "laststate" ->
-                        let
-                            _ =
-                                Debug.log "laststaet:" "decode"
-                        in
                         JD.map LastStateReceived <|
                             JD.maybe
                                 (JD.field "content"
