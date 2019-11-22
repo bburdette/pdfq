@@ -30,6 +30,7 @@ type Msg
     | PrevPage
     | NextPage
     | ZoomChanged String
+    | PageChanged String
     | NoteChanged String
 
 
@@ -38,6 +39,7 @@ type alias Model listmodel =
     , zoom : Float
     , zoomText : String
     , page : Int
+    , pageText : String
     , pageCount : Int
     , listModel : listmodel -- we come from the List, and we return to the list.  I guess?
     , notes : PdfNotes
@@ -80,6 +82,7 @@ init mbps mbpdfn opdf listmod =
     , zoom = zoom
     , zoomText = String.fromFloat zoom
     , page = page
+    , pageText = String.fromInt page
     , pageCount = opdf.pageCount
     , listModel = listmod
     , notes = pdfn
@@ -99,16 +102,31 @@ update msg model =
                     , zoom = String.toFloat string |> Maybe.withDefault model.zoom
                 }
 
+        PageChanged string ->
+            persist
+                { model
+                    | pageText = string
+                    , page = String.toInt string |> Maybe.withDefault model.page
+                }
+
         PrevPage ->
             if model.page > 1 then
-                persist { model | page = model.page - 1 }
+                let
+                    p =
+                        model.page - 1
+                in
+                persist { model | page = p, pageText = String.fromInt p }
 
             else
                 Viewer model
 
         NextPage ->
             if model.page < model.pageCount then
-                persist { model | page = model.page + 1 }
+                let
+                    p =
+                        model.page + 1
+                in
+                persist { model | page = p, pageText = String.fromInt p }
 
             else
                 Viewer model
@@ -138,7 +156,14 @@ topBar model =
         , E.row [ E.height E.fill, E.width E.fill, E.clipX ]
             [ E.el [ E.centerX, EB.color <| E.rgb 0 0 0 ] <| E.text model.pdfName ]
         , E.row [ E.alignRight, E.spacing 5 ]
-            [ E.el [ EF.color <| E.rgb 1 1 1 ] <|
+            [ E.el [ E.width E.shrink ] <|
+                EI.text [ E.width <| E.px 100 ]
+                    { onChange = PageChanged
+                    , text = model.pageText
+                    , placeholder = Nothing
+                    , label = EI.labelHidden "page"
+                    }
+            , E.el [ EF.color <| E.rgb 1 1 1 ] <|
                 E.text <|
                     "Page: "
                         ++ String.fromInt model.page
