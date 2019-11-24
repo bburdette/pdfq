@@ -1,11 +1,13 @@
 module Main exposing (..)
 
 import Browser as B
+import Browser.Events
 import Dict exposing (Dict)
 import Element as E
 import ErrorView as EV
 import Html exposing (Html)
 import Http
+import Json.Decode as JD
 import PdfDoc as PD
 import PdfInfo exposing (LastState(..), PdfNotes)
 import PdfList as PL
@@ -40,6 +42,12 @@ type Msg
     | Naiow (Time.Posix -> Cmd Msg) Time.Posix
     | ServerResponse (Result Http.Error PI.ServerResponse)
     | SaveNote String Int
+    | OnKeyDown String
+
+
+decodeKey : JD.Decoder String
+decodeKey =
+    JD.field "key" JD.string
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -153,7 +161,7 @@ update msg model =
                                 _ ->
                                     ( model, Cmd.none )
 
-                        PI.NotesResponse nr ->
+                        PI.NotesResponse _ ->
                             ( { model | page = ErrorView <| EV.init "unexpected notes message" page }, Cmd.none )
 
                         PI.PdfStateSaved ->
@@ -164,6 +172,13 @@ update msg model =
 
         ( Naiow mkCmd time, _ ) ->
             ( model, mkCmd time )
+
+        ( OnKeyDown ks, _ ) ->
+            -- let
+            --     _ =
+            --         Debug.log "key: " ks
+            -- in
+            update (ViewerMsg (PdfViewer.OnKeyDown ks)) model
 
         ( SaveNote pdfname count, _ ) ->
             case Dict.get pdfname model.saveNotes of
@@ -240,7 +255,12 @@ main : Program Flags Model Msg
 main =
     B.element
         { init = init
-        , subscriptions = \_ -> Sub.map PDMsg PD.pdfreceive
+        , subscriptions =
+            \_ ->
+                Sub.batch
+                    [ Sub.map PDMsg PD.pdfreceive
+                    , Browser.Events.onKeyDown (JD.map OnKeyDown decodeKey)
+                    ]
         , view = view
         , update = update
         }

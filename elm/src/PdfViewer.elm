@@ -5,15 +5,13 @@ import Dict
 import Element as E exposing (Element)
 import Element.Background as EBg
 import Element.Border as EB
+import Element.Events as EE
 import Element.Font as EF
 import Element.Input as EI
 import Html exposing (Html)
 import PdfDoc as PD
 import PdfElement
-import PdfInfo exposing (PdfNotes, PersistentState, encodePersistentState)
-import Process
-import PublicInterface as PI
-import Task
+import PdfInfo exposing (PdfNotes, PersistentState)
 import Time
 import Util
 
@@ -29,9 +27,11 @@ type Msg
     = SelectClick
     | PrevPage
     | NextPage
+    | OnKeyDown String
     | ZoomChanged String
     | PageChanged String
     | NoteChanged String
+    | NoteFocus Bool
 
 
 type alias Model listmodel =
@@ -41,8 +41,9 @@ type alias Model listmodel =
     , page : Int
     , pageText : String
     , pageCount : Int
-    , listModel : listmodel -- we come from the List, and we return to the list.  I guess?
+    , listModel : listmodel
     , notes : PdfNotes
+    , noteFocus : Bool
     }
 
 
@@ -86,7 +87,21 @@ init mbps mbpdfn opdf listmod =
     , pageCount = opdf.pageCount
     , listModel = listmod
     , notes = pdfn
+    , noteFocus = False
     }
+
+
+changePage : Int -> Model a -> Transition a
+changePage increment model =
+    let
+        p =
+            model.page + increment
+    in
+    if 0 < p && p < model.pageCount then
+        persist { model | page = p, pageText = String.fromInt p }
+
+    else
+        Viewer model
 
 
 update : Msg -> Model a -> Transition a
@@ -94,6 +109,27 @@ update msg model =
     case msg of
         SelectClick ->
             List model.listModel (toPersistentState model)
+
+        OnKeyDown key ->
+            if model.noteFocus then
+                Viewer model
+
+            else
+                case key of
+                    "ArrowRight" ->
+                        changePage 1 model
+
+                    "ArrowLeft" ->
+                        changePage -1 model
+
+                    "PageDown" ->
+                        changePage 1 model
+
+                    "PageUp" ->
+                        changePage -1 model
+
+                    _ ->
+                        Viewer model
 
         ZoomChanged string ->
             persist
@@ -110,26 +146,10 @@ update msg model =
                 }
 
         PrevPage ->
-            if model.page > 1 then
-                let
-                    p =
-                        model.page - 1
-                in
-                persist { model | page = p, pageText = String.fromInt p }
-
-            else
-                Viewer model
+            changePage -1 model
 
         NextPage ->
-            if model.page < model.pageCount then
-                let
-                    p =
-                        model.page + 1
-                in
-                persist { model | page = p, pageText = String.fromInt p }
-
-            else
-                Viewer model
+            changePage 1 model
 
         NoteChanged txt ->
             let
@@ -140,6 +160,9 @@ update msg model =
                     { notes | notes = txt }
             in
             ViewerSaveNotes { model | notes = updnotes } updnotes
+
+        NoteFocus focus ->
+            Viewer { model | noteFocus = focus }
 
 
 topBar : Model a -> Element Msg
@@ -188,6 +211,8 @@ notePanel model =
         [ Util.scrollbarYEl [] <|
             EI.multiline
                 [ E.alignTop
+                , EE.onFocus <| NoteFocus True
+                , EE.onLoseFocus <| NoteFocus False
                 ]
                 { onChange = NoteChanged
                 , text = model.notes.notes
