@@ -31,7 +31,7 @@ type Msg
     | ZoomChanged String
     | PageChanged String
     | NoteChanged String
-    | NoteFocus Bool
+    | TextFocus Bool
 
 
 type alias Model listmodel =
@@ -43,7 +43,7 @@ type alias Model listmodel =
     , pageCount : Int
     , listModel : listmodel
     , notes : PdfNotes
-    , noteFocus : Bool
+    , textFocus : Bool
     }
 
 
@@ -65,7 +65,7 @@ persist model =
 init : Maybe PersistentState -> Maybe PdfNotes -> PD.OpenedPdf -> a -> Model a
 init mbps mbpdfn opdf listmod =
     let
-        zoom =
+        izoom =
             mbps |> Maybe.map .zoom |> Maybe.withDefault 1.0
 
         page =
@@ -80,14 +80,14 @@ init mbps mbpdfn opdf listmod =
                     }
     in
     { pdfName = opdf.pdfName
-    , zoom = zoom
-    , zoomText = String.fromFloat zoom
+    , zoom = izoom
+    , zoomText = String.fromFloat izoom
     , page = page
     , pageText = String.fromInt page
     , pageCount = opdf.pageCount
     , listModel = listmod
     , notes = pdfn
-    , noteFocus = False
+    , textFocus = False
     }
 
 
@@ -104,6 +104,19 @@ changePage increment model =
         Viewer model
 
 
+zoom : Float -> Model a -> Transition a
+zoom mult model =
+    let
+        z =
+            model.zoom * mult
+    in
+    Viewer
+        { model
+            | zoom = z
+            , zoomText = String.fromFloat z
+        }
+
+
 update : Msg -> Model a -> Transition a
 update msg model =
     case msg of
@@ -111,7 +124,7 @@ update msg model =
             List model.listModel (toPersistentState model)
 
         OnKeyDown key ->
-            if model.noteFocus then
+            if model.textFocus then
                 Viewer model
 
             else
@@ -127,6 +140,18 @@ update msg model =
 
                     "PageUp" ->
                         changePage -1 model
+
+                    "+" ->
+                        zoom 1.1 model
+
+                    "=" ->
+                        zoom 1.1 model
+
+                    "-" ->
+                        zoom (1.0 / 1.1) model
+
+                    "_" ->
+                        zoom (1.0 / 1.1) model
 
                     _ ->
                         Viewer model
@@ -161,8 +186,8 @@ update msg model =
             in
             ViewerSaveNotes { model | notes = updnotes } updnotes
 
-        NoteFocus focus ->
-            Viewer { model | noteFocus = focus }
+        TextFocus focus ->
+            Viewer { model | textFocus = focus }
 
 
 topBar : Model a -> Element Msg
@@ -170,7 +195,11 @@ topBar model =
     E.row [ E.width E.fill, EBg.color <| E.rgb 0.4 0.4 0.4, E.spacing 5, E.paddingXY 5 5 ]
         [ EI.button buttonStyle { label = E.text "select pdf", onPress = Just SelectClick }
         , E.el [ E.width E.shrink ] <|
-            EI.text [ E.width <| E.px 100 ]
+            EI.text
+                [ E.width <| E.px 100
+                , EE.onFocus <| TextFocus True
+                , EE.onLoseFocus <| TextFocus False
+                ]
                 { onChange = ZoomChanged
                 , text = model.zoomText
                 , placeholder = Nothing
@@ -180,7 +209,11 @@ topBar model =
             [ E.el [ E.centerX, EB.color <| E.rgb 0 0 0 ] <| E.text model.pdfName ]
         , E.row [ E.alignRight, E.spacing 5 ]
             [ E.el [ E.width E.shrink ] <|
-                EI.text [ E.width <| E.px 100 ]
+                EI.text
+                    [ E.width <| E.px 100
+                    , EE.onFocus <| TextFocus True
+                    , EE.onLoseFocus <| TextFocus False
+                    ]
                     { onChange = PageChanged
                     , text = model.pageText
                     , placeholder = Nothing
@@ -211,8 +244,8 @@ notePanel model =
         [ Util.scrollbarYEl [] <|
             EI.multiline
                 [ E.alignTop
-                , EE.onFocus <| NoteFocus True
-                , EE.onLoseFocus <| NoteFocus False
+                , EE.onFocus <| TextFocus True
+                , EE.onLoseFocus <| TextFocus False
                 ]
                 { onChange = NoteChanged
                 , text = model.notes.notes
