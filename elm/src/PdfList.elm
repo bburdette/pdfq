@@ -23,6 +23,7 @@ type Transition
     = List Model
     | ListCmd Model (Cmd Msg)
     | Viewer (PV.Model Model)
+    | OpenDialog Model
     | Error String
 
 
@@ -39,6 +40,21 @@ type alias Model =
 type SortDirection
     = Up
     | Down
+
+
+type SortColumn
+    = Date
+    | Name
+
+
+type Msg
+    = Noop
+    | OpenClick PdfInfo
+    | NewClick
+    | PDMsg PD.Msg
+    | SortClick SortColumn
+    | UpdatePState PersistentState
+    | ServerResponse (Result Http.Error PI.ServerResponse)
 
 
 updateState : Model -> PersistentState -> Model
@@ -92,11 +108,6 @@ sort model =
     }
 
 
-type SortColumn
-    = Date
-    | Name
-
-
 init : List PdfInfo -> String -> Maybe String -> ( Model, Cmd Msg )
 init pdfs location mbpdfname =
     let
@@ -130,21 +141,16 @@ openPdfCmd model pdfname =
         ]
 
 
-type Msg
-    = Noop
-    | OpenClick PdfInfo
-    | PDMsg PD.Msg
-    | SortClick SortColumn
-    | UpdatePState PersistentState
-    | ServerResponse (Result Http.Error PI.ServerResponse)
-
-
 view : Model -> Element Msg
 view model =
     E.table [ E.width E.fill, E.spacing 5 ]
         { data = model.pdfs
         , columns =
-            [ { header = E.text ""
+            [ { header =
+                    EI.button buttonStyle
+                        { label = E.text "new"
+                        , onPress = Just <| NewClick
+                        }
               , width = E.shrink
               , view =
                     \pi ->
@@ -244,6 +250,9 @@ update msg model =
 
                         PI.Noop ->
                             List model
+
+        NewClick ->
+            OpenDialog model
 
         OpenClick pi ->
             let

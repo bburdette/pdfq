@@ -8,6 +8,7 @@ import ErrorView as EV
 import Html exposing (Html)
 import Http
 import Json.Decode as JD
+import OpenDialog as OD
 import PdfDoc as PD
 import PdfInfo exposing (LastState(..), PdfNotes)
 import PdfList as PL
@@ -22,6 +23,7 @@ import Util
 type Page
     = Viewer (PdfViewer.Model PL.Model)
     | List PL.Model
+    | OpenDialog (OD.Model PL.Model)
     | Loading (Maybe LastState)
     | ErrorView (EV.Model Page)
 
@@ -37,9 +39,10 @@ type alias Model =
 type Msg
     = ViewerMsg PdfViewer.Msg
     | ListMsg PL.Msg
+    | OpenDialogMsg OD.Msg
     | PDMsg PD.Msg
     | EVMsg EV.Msg
-    | Naiow (Time.Posix -> Cmd Msg) Time.Posix
+    | Now (Time.Posix -> Cmd Msg) Time.Posix
     | ServerResponse (Result Http.Error PI.ServerResponse)
     | SaveNote String Int
     | OnKeyDown String
@@ -61,7 +64,7 @@ update msg model =
                 PdfViewer.ViewerPersist vmod mkpersist ->
                     ( { model | page = Viewer vmod }
                     , Task.perform
-                        (Naiow (\time -> mkPublicHttpReq model.location (PI.SavePdfState (PdfInfo.encodePersistentState (mkpersist time)))))
+                        (Now (\time -> mkPublicHttpReq model.location (PI.SavePdfState (PdfInfo.encodePersistentState (mkpersist time)))))
                         Time.now
                     )
 
@@ -92,12 +95,23 @@ update msg model =
                 PL.ListCmd nmod lcmd ->
                     ( { model | page = List nmod }, Cmd.map ListMsg lcmd )
 
+                PL.OpenDialog nlm ->
+                    ( { model | page = OpenDialog (OD.init nlm) }, Cmd.none )
+
                 PL.Viewer vmod ->
                     addLastStateCmd
                         ( { model | page = Viewer vmod }, Cmd.none )
 
                 PL.Error e ->
                     ( { model | page = ErrorView <| EV.init e (List mod) }, Cmd.none )
+
+        ( OpenDialogMsg odm, OpenDialog odmod ) ->
+            case OD.update odm odmod of
+                OD.Dialog dm ->
+                    ( { model | page = OpenDialog dm }, Cmd.none )
+
+                OD.Return dm ->
+                    ( { model | page = List dm }, Cmd.none )
 
         ( EVMsg evm, ErrorView evmod ) ->
             case EV.update evm evmod of
@@ -170,7 +184,7 @@ update msg model =
                         PI.Noop ->
                             ( model, Cmd.none )
 
-        ( Naiow mkCmd time, _ ) ->
+        ( Now mkCmd time, _ ) ->
             ( model, mkCmd time )
 
         ( OnKeyDown ks, _ ) ->
@@ -212,6 +226,10 @@ view model =
         Viewer mod ->
             Html.map ViewerMsg <|
                 PdfViewer.view mod
+
+        OpenDialog mod ->
+            Html.map OpenDialogMsg <|
+                OD.view mod
 
         Loading _ ->
             E.layout
