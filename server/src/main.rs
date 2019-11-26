@@ -31,10 +31,12 @@ use futures::future::Future;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 use std::time::SystemTime;
-mod process_json;
-mod util;
 use json::JsonValue;
 use process_json::{process_public_json, PublicMessage, ServerResponse};
+
+mod process_json;
+mod util;
+mod sqldata;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Config {

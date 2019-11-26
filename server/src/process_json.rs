@@ -8,6 +8,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use util;
+use sqldata;
 
 #[derive(Deserialize, Debug)]
 pub struct PublicMessage {
