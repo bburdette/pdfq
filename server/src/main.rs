@@ -13,6 +13,7 @@ extern crate toml;
 extern crate uuid;
 #[macro_use]
 extern crate log;
+extern crate rusqlite;
 
 use actix_files::NamedFile;
 use actix_web::http::{Method, StatusCode};
