@@ -172,6 +172,8 @@ fn err_main() -> Result<(), std::io::Error> {
 
   info!("server init!");
 
+  sqldata::peeps();
+
   let config = load_config();
 
   if config.createdirs {

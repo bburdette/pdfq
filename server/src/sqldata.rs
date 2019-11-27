@@ -41,8 +41,20 @@ struct Person {
     data: Option<Vec<u8>>,
 }
 
-fn peeps() -> Result<()> {
+pub fn peeps() -> Result<()> {
     let conn = Connection::open_in_memory()?;
+
+    // try creating a pdfinfo table.
+    println!("pdfinfo create: {:?}", conn.execute(
+        "CREATE TABLE pdfinfo ( 
+                  name            TEXT NOT NULL PRIMARY KEY,
+                  last_read       INTEGER,
+                  persistentState BLOB
+                  notes           TEXT NOT NULL
+                  )",
+        params![],
+    ));
+
 
     conn.execute(
         "CREATE TABLE person (
