@@ -49,12 +49,40 @@ pub fn peeps() -> Result<()> {
         "CREATE TABLE pdfinfo ( 
                   name            TEXT NOT NULL PRIMARY KEY,
                   last_read       INTEGER,
-                  persistentState BLOB
+                  persistentState BLOB,
                   notes           TEXT NOT NULL
                   )",
         params![],
     ));
 
+    let pdoc = PdfInfo {
+      last_read : Some(1)
+      , filename : "blah".to_string()
+      , state: None };
+
+    let s : Option<PersistentState> = None;
+
+    conn.execute(
+        "INSERT INTO pdfinfo (name, last_read, persistentState, notes)
+                  VALUES (?1, ?2, ?3, '')",
+        params![pdoc.filename, pdoc.last_read, ""],
+    )?;
+
+    let mut pstmt = conn.prepare("SELECT name, last_read, notes FROM pdfinfo")?;
+    let pdfinfo_iter = pstmt.query_map(params![], |row| {
+        Ok(PdfInfo {
+            filename: row.get(0)?,
+            last_read: row.get(1)?,
+            state: None,
+            // state: row.get(2)?,
+            // notes: row.get(3)?,
+        })
+    })?;
+
+    for pdfinfo in pdfinfo_iter {
+        println!("Found pdfinfo {:?}", pdfinfo.unwrap());
+    };
+    
 
     conn.execute(
         "CREATE TABLE person (
@@ -89,6 +117,7 @@ pub fn peeps() -> Result<()> {
 
     for person in person_iter {
         println!("Found person {:?}", person.unwrap());
-    }
+    };
+    
     Ok(())
 }
