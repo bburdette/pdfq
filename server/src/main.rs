@@ -28,15 +28,15 @@ use actix_web::{
 extern crate serde_derive;
 
 use futures::future::Future;
+use json::JsonValue;
+use process_json::{process_public_json, PublicMessage, ServerResponse};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 use std::time::SystemTime;
-use json::JsonValue;
-use process_json::{process_public_json, PublicMessage, ServerResponse};
 
 mod process_json;
-mod util;
 mod sqldata;
+mod util;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Config {
@@ -106,6 +106,7 @@ fn mainpage(state: web::Data<Config>, req: HttpRequest) -> HttpResponse {
     }
   }
 }
+
 fn public(
   state: web::Data<Config>,
   item: web::Json<PublicMessage>,
@@ -172,7 +173,9 @@ fn err_main() -> Result<(), std::io::Error> {
 
   info!("server init!");
 
-  println!("peeps: {:?}", sqldata::peeps());
+  println!("pdfdb: {:?}", sqldata::pdfdb());
+
+  // println!("peeps: {:?}", sqldata::peeps());
 
   let config = load_config();
 

@@ -1,7 +1,28 @@
 #[macro_use]
 use rusqlite::types::ToSql;
-use rusqlite::{params, Connection, Result, NO_PARAMS};
+use rusqlite::{params, Connection, NO_PARAMS};
+use std::convert::TryInto;
+use std::error::Error;
+use std::fs::File;
+use std::io::Read;
+use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use time::Timespec;
+use util;
+
+/*
+// use std::fs::File;
+// use std::io::Read;
+extern crate serde_json;
+use serde_json::Value;
+use simple_error;
+use std::convert::TryInto;
+use std::error::Error;
+use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use util;
+use sqldata;
+*/
 
 #[derive(Serialize, Debug)]
 struct PdfList {
@@ -17,7 +38,7 @@ struct PdfInfo {
 
 #[derive(Deserialize, Debug)]
 struct PdfNotes {
-  pdf_name: String, 
+  pdf_name: String,
   notes: String,
   // page_notes: map int -> string,
 }
@@ -39,7 +60,7 @@ struct Person {
   data: Option<Vec<u8>>,
 }
 
-pub fn peeps() -> Result<()> {
+pub fn pdfdb() -> rusqlite::Result<()> {
   let conn = Connection::open_in_memory()?;
 
   // try creating a pdfinfo table.
@@ -84,6 +105,73 @@ pub fn peeps() -> Result<()> {
   for pdfinfo in pdfinfo_iter {
     println!("Found pdfinfo {:?}", pdfinfo.unwrap());
   }
+
+  Ok(())
+}
+
+
+// fn pdfentries(Result<std::vec::Vec<PdfInfo>, Box<Error>> {
+// }
+
+// scan the pdf dir and return a pdfinfo for each file.
+fn pdfscan(pdfdir: &str, statedir: &str) -> Result<std::vec::Vec<PdfInfo>, Box<Error>> {
+  let p = Path::new(pdfdir);
+
+  let mut v = Vec::new();
+
+  if p.exists() {
+    for fr in p.read_dir()? {
+      let f = fr?;
+      let fname = f
+        .file_name()
+        .into_string()
+        .map_err(|e| format!("bad pdf filename: {:?}", f))?;
+
+      let spath = format!("{}/{}.state", statedir, fname);
+      let pst = Path::new(spath.as_str()).to_str().ok_or("invalid path")?;
+
+      let state: Option<PersistentState> = match util::load_string(pst) {
+        Err(_) => None,
+        Ok(s) => {
+          println!("loading state: {}", pst);
+          let ps: PersistentState = serde_json::from_str(s.as_str())?;
+          Some(ps)
+        }
+      };
+
+      v.push(PdfInfo {
+        filename: f
+          .file_name()
+          .into_string()
+          .unwrap_or("non utf filename".to_string()),
+        last_read: f
+          .metadata()
+          .and_then(|f| {
+            f.accessed().and_then(|t| {
+              let dur = t.duration_since(UNIX_EPOCH).expect("unix-epoch-error");
+              let meh: i64 = dur
+                .as_millis()
+                .try_into()
+                .expect("i64 insufficient for posix date!");
+              Ok(meh)
+            })
+          })
+          .ok(),
+        state: state,
+      });
+
+      // println!("eff {:?}", f);
+    }
+  } else {
+    error!("pdf directory not found: {}", pdfdir);
+  }
+
+  Ok(v)
+}
+
+
+pub fn peeps() -> rusqlite::Result<()> {
+  let conn = Connection::open_in_memory()?;
 
   conn.execute(
     "CREATE TABLE person (
