@@ -7,4 +7,5 @@ server/Cargo.lock
 server/static/
 server/state/
 server/target/
+server/pdf.db
 yarn.lock
