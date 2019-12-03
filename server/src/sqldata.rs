@@ -53,6 +53,7 @@ struct PersistentState {
   last_read: i64,
 }
 */
+
 pub fn pdfdb(dbfile: &Path) -> rusqlite::Result<()> {
   let conn = Connection::open(dbfile)?;
 
@@ -177,6 +178,44 @@ pub fn pdfentries(dbfile: &Path, pdfinfo: std::vec::Vec<PdfInfo>) -> rusqlite::R
   }
 
   // for each pdfinfo
+
+  Ok(())
+}
+
+pub fn savePdfState(dbfile: &Path, pdfname: &str, pdfstate: &str) -> rusqlite::Result<()> {
+  let conn = Connection::open(dbfile)?;
+
+  println!("savePdfState {} {}", pdfname, pdfstate);
+
+  conn.execute(
+    "update pdfinfo set persistentState = ?2 where name = ?1",
+    params![pdfname, pdfstate],
+  )?;
+
+  Ok(())
+}
+
+pub fn getPdfNotes(dbfile: &Path, pdfname: &str) -> rusqlite::Result<String> {
+  let conn = Connection::open(dbfile)?;
+
+  let mut pstmt = conn.prepare("SELECT notes FROM pdfinfo WHERE name = ?1")?;
+  let mut rows = pstmt.query(params![pdfname])?;
+
+  match rows.next() {
+    Ok(Some(row)) =>
+      row.get(0),
+    Ok(None) =>
+      Err(rusqlite::Error::QueryReturnedNoRows),
+    Err(e) => Err(e),
+  }
+}
+pub fn savePdfNotes(dbfile: &Path, pdfname: &str, pdfnotes: &str) -> rusqlite::Result<()> {
+  let conn = Connection::open(dbfile)?;
+
+  conn.execute(
+    "update pdfinfo set notes = ?2 where name = ?1",
+    params![pdfname, pdfnotes],
+  )?;
 
   Ok(())
 }

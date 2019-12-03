@@ -76,7 +76,8 @@ init mbps mbpdfn opdf listmod =
                 |> Maybe.withDefault
                     { pdfName = opdf.pdfName
                     , notes = ""
-                    , pageNotes = Dict.fromList []
+
+                    -- , pageNotes = Dict.fromList []
                     }
     in
     { pdfName = opdf.pdfName
