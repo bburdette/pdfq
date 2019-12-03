@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use time::Timespec;
 use util;
-
+use serde_json;
 /*
 // use std::fs::File;
 // use std::io::Read;
@@ -34,7 +34,7 @@ pub struct PdfList {
 pub struct PdfInfo {
   last_read: Option<i64>,
   filename: String,
-  state: Option<String>,
+  state: Option<serde_json::Value>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -104,14 +104,18 @@ pub fn pdflist(dbfile: &Path) -> rusqlite::Result<PdfList> {
 
   let mut pstmt = conn.prepare("SELECT name, last_read, persistentState FROM pdfinfo")?;
   let pdfinfo_iter = pstmt.query_map(params![], |row| {
+    let ss : Option<String> = row.get(2)?;
+    // we don't get the json parse error if there is one!
+    let state : Option<serde_json::Value> =  ss.and_then(
+      |s|
+      serde_json::from_str(s.as_str()).ok());
+
     Ok(PdfInfo {
       filename: row.get(0)?,
       last_read: row.get(1)?,
-      state: row.get(2)?,
+      state: state ,
     })
   })?;
-
-  // let mut pl = PdfList { pdfs = [] };
 
   let mut pv = Vec::new();
 
@@ -209,6 +213,7 @@ pub fn getPdfNotes(dbfile: &Path, pdfname: &str) -> rusqlite::Result<String> {
     Err(e) => Err(e),
   }
 }
+
 pub fn savePdfNotes(dbfile: &Path, pdfname: &str, pdfnotes: &str) -> rusqlite::Result<()> {
   let conn = Connection::open(dbfile)?;
 
