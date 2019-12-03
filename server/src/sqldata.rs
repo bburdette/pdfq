@@ -1,6 +1,7 @@
 #[macro_use]
 use rusqlite::types::ToSql;
 use rusqlite::{params, Connection, NO_PARAMS};
+use std::collections::BTreeSet;
 use std::convert::TryInto;
 use std::error::Error;
 use std::fs::File;
@@ -30,7 +31,7 @@ struct PdfList {
 }
 
 #[derive(Serialize, Debug)]
-struct PdfInfo {
+pub struct PdfInfo {
   last_read: Option<i64>,
   filename: String,
   state: Option<PersistentState>,
@@ -60,8 +61,8 @@ struct Person {
   data: Option<Vec<u8>>,
 }
 
-pub fn pdfdb() -> rusqlite::Result<()> {
-  let conn = Connection::open_in_memory()?;
+pub fn pdfdb(dbfile: &Path) -> rusqlite::Result<()> {
+  let conn = Connection::open(dbfile)?;
 
   // try creating a pdfinfo table.
   println!(
@@ -109,12 +110,64 @@ pub fn pdfdb() -> rusqlite::Result<()> {
   Ok(())
 }
 
+pub fn dbinit(dbfile: &Path) -> rusqlite::Result<()> {
+  let conn = Connection::open(dbfile)?;
 
-// fn pdfentries(Result<std::vec::Vec<PdfInfo>, Box<Error>> {
-// }
+  // create the pdfinfo table.
+  println!(
+    "pdfinfo create: {:?}",
+    conn.execute(
+      "CREATE TABLE pdfinfo (
+                  name            TEXT NOT NULL PRIMARY KEY,
+                  last_read       INTEGER,
+                  persistentState BLOB,
+                  notes           TEXT NOT NULL
+                  )",
+      params![],
+    )
+  );
+
+  Ok(())
+}
+
+// create entries in the db for pdfs that aren't in there yet.
+pub fn pdfentries(dbfile: &Path, pdfinfo: std::vec::Vec<PdfInfo>) -> rusqlite::Result<()> {
+  let conn = Connection::open(dbfile)?;
+
+  // get a set of the names in the db already.
+  let mut pstmt = conn.prepare("SELECT name FROM pdfinfo")?;
+  let pdfname_iter = pstmt.query_map(params![], |row| row.get(0))?;
+
+  let mut nameset: BTreeSet<String> = BTreeSet::new();
+  for pdfname in pdfname_iter {
+    match pdfname {
+      Ok(name) => nameset.insert(name),
+      _ => false,
+    };
+  };
+
+  println!("names: {:?}", nameset);
+
+  for pi in pdfinfo {
+    if !nameset.contains(&pi.filename) {
+      println!("adding pdf: {}", pi.filename);
+      conn.execute(
+        "INSERT INTO pdfinfo (name, last_read, persistentState, notes)
+                      VALUES (?1, ?2, ?3, '')",
+        params![pi.filename, pi.last_read, ""],
+      )?;
+
+    }
+    
+  }
+
+  // for each pdfinfo
+
+  Ok(())
+}
 
 // scan the pdf dir and return a pdfinfo for each file.
-fn pdfscan(pdfdir: &str, statedir: &str) -> Result<std::vec::Vec<PdfInfo>, Box<Error>> {
+pub fn pdfscan(pdfdir: &str) -> Result<std::vec::Vec<PdfInfo>, Box<Error>> {
   let p = Path::new(pdfdir);
 
   let mut v = Vec::new();
@@ -126,18 +179,6 @@ fn pdfscan(pdfdir: &str, statedir: &str) -> Result<std::vec::Vec<PdfInfo>, Box<E
         .file_name()
         .into_string()
         .map_err(|e| format!("bad pdf filename: {:?}", f))?;
-
-      let spath = format!("{}/{}.state", statedir, fname);
-      let pst = Path::new(spath.as_str()).to_str().ok_or("invalid path")?;
-
-      let state: Option<PersistentState> = match util::load_string(pst) {
-        Err(_) => None,
-        Ok(s) => {
-          println!("loading state: {}", pst);
-          let ps: PersistentState = serde_json::from_str(s.as_str())?;
-          Some(ps)
-        }
-      };
 
       v.push(PdfInfo {
         filename: f
@@ -157,7 +198,7 @@ fn pdfscan(pdfdir: &str, statedir: &str) -> Result<std::vec::Vec<PdfInfo>, Box<E
             })
           })
           .ok(),
-        state: state,
+        state: None,
       });
 
       // println!("eff {:?}", f);
@@ -168,7 +209,6 @@ fn pdfscan(pdfdir: &str, statedir: &str) -> Result<std::vec::Vec<PdfInfo>, Box<E
 
   Ok(v)
 }
-
 
 pub fn peeps() -> rusqlite::Result<()> {
   let conn = Connection::open_in_memory()?;

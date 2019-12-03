@@ -14,29 +14,25 @@ extern crate uuid;
 #[macro_use]
 extern crate log;
 extern crate rusqlite;
+#[macro_use]
+extern crate serde_derive;
+
+mod process_json;
+mod sqldata;
+mod util;
 
 use actix_files::NamedFile;
 use actix_web::http::{Method, StatusCode};
 use actix_web::middleware::Logger;
-// use actix_web::Binary;
 use actix_web::{
   http, middleware, web, App, HttpMessage, HttpRequest, HttpResponse, HttpServer, Responder, Result,
 };
-// use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
-
-#[macro_use]
-extern crate serde_derive;
-
 use futures::future::Future;
 use json::JsonValue;
 use process_json::{process_public_json, PublicMessage, ServerResponse};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 use std::time::SystemTime;
-
-mod process_json;
-mod sqldata;
-mod util;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Config {
@@ -45,6 +41,7 @@ pub struct Config {
   pdfdir: String,
   statedir: String,
   createdirs: bool,
+  sqldb: String,
 }
 
 fn files(req: &HttpRequest) -> Result<NamedFile> {
@@ -143,6 +140,7 @@ fn defcon() -> Config {
     pdfdir: "./pdfs".to_string(),
     statedir: "./state".to_string(),
     createdirs: false,
+    sqldb: "./pdf.db".to_string(),
   }
 }
 
@@ -173,11 +171,22 @@ fn err_main() -> Result<(), std::io::Error> {
 
   info!("server init!");
 
-  println!("pdfdb: {:?}", sqldata::pdfdb());
-
-  // println!("peeps: {:?}", sqldata::peeps());
-
   let config = load_config();
+
+  let sqldbp = Path::new(&config.sqldb);
+
+  if !sqldbp.exists() {
+    sqldata::dbinit(sqldbp);
+  }
+
+  let pdfs = sqldata::pdfscan(&config.pdfdir).map_err(|_| {
+    std::io::Error::new(
+      std::io::ErrorKind::NotFound,
+      "make a better error!",
+    )
+  })?;
+
+  println!("pdfdb: {:?}", sqldata::pdfentries(&sqldbp, pdfs));
 
   if config.createdirs {
     std::fs::create_dir_all(config.pdfdir.clone())?;

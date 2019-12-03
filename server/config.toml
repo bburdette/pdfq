@@ -3,3 +3,4 @@ port = 8000
 pdfdir = "/home/bburdette/papers"
 statedir = "./state"
 createdirs = false
+sqldb = "./pdf.db"
