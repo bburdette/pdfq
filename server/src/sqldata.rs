@@ -1,6 +1,7 @@
 #[macro_use]
 use rusqlite::types::ToSql;
 use rusqlite::{params, Connection, NO_PARAMS};
+use serde_json;
 use std::collections::BTreeSet;
 use std::convert::TryInto;
 use std::error::Error;
@@ -10,7 +11,6 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use time::Timespec;
 use util;
-use serde_json;
 /*
 // use std::fs::File;
 // use std::io::Read;
@@ -37,83 +37,21 @@ pub struct PdfInfo {
   state: Option<serde_json::Value>,
 }
 
-#[derive(Deserialize, Debug)]
-struct PdfNotes {
-  pdf_name: String,
-  notes: String,
-  // page_notes: map int -> string,
-}
-
-/*#[derive(Deserialize, Serialize, Debug)]
-struct PersistentState {
-  pdf_name: String,
-  zoom: f32,
-  page: i32,
-  page_count: i32,
-  last_read: i64,
-}
-*/
-
-pub fn pdfdb(dbfile: &Path) -> rusqlite::Result<()> {
-  let conn = Connection::open(dbfile)?;
-
-  // try creating a pdfinfo table.
-  println!(
-    "pdfinfo create: {:?}",
-    conn.execute(
-      "CREATE TABLE pdfinfo ( 
-                  name            TEXT NOT NULL PRIMARY KEY,
-                  last_read       INTEGER,
-                  persistentState TEXT,
-                  notes           TEXT NOT NULL
-                  )",
-      params![],
-    )
-  );
-
-  let pdoc = PdfInfo {
-    last_read: Some(1),
-    filename: "blah".to_string(),
-    state: None,
-  };
-
-  conn.execute(
-    "INSERT INTO pdfinfo (name, last_read, persistentState, notes)
-                  VALUES (?1, ?2, ?3, '')",
-    params![pdoc.filename, pdoc.last_read, ""],
-  )?;
-
-  let mut pstmt = conn.prepare("SELECT name, last_read, notes FROM pdfinfo")?;
-  let pdfinfo_iter = pstmt.query_map(params![], |row| {
-    Ok(PdfInfo {
-      filename: row.get(0)?,
-      last_read: row.get(1)?,
-      state: None,
-    })
-  })?;
-
-  for pdfinfo in pdfinfo_iter {
-    println!("Found pdfinfo {:?}", pdfinfo.unwrap());
-  }
-
-  Ok(())
-}
-
 pub fn pdflist(dbfile: &Path) -> rusqlite::Result<PdfList> {
   let conn = Connection::open(dbfile)?;
 
   let mut pstmt = conn.prepare("SELECT name, last_read, persistentState FROM pdfinfo")?;
   let pdfinfo_iter = pstmt.query_map(params![], |row| {
-    let ss : Option<String> = row.get(2)?;
+    let ss: Option<String> = row.get(2)?;
     // we don't get the json parse error if there is one!
-    let state : Option<serde_json::Value> =  ss.and_then(
+    let state: Option<serde_json::Value> = ss.and_then(
       |s|
-      serde_json::from_str(s.as_str()).ok());
+        serde_json::from_str(s.as_str()).ok());
 
     Ok(PdfInfo {
       filename: row.get(0)?,
       last_read: row.get(1)?,
-      state: state ,
+      state: state,
     })
   })?;
 
@@ -206,10 +144,8 @@ pub fn getPdfNotes(dbfile: &Path, pdfname: &str) -> rusqlite::Result<String> {
   let mut rows = pstmt.query(params![pdfname])?;
 
   match rows.next() {
-    Ok(Some(row)) =>
-      row.get(0),
-    Ok(None) =>
-      Err(rusqlite::Error::QueryReturnedNoRows),
+    Ok(Some(row)) => row.get(0),
+    Ok(None) => Err(rusqlite::Error::QueryReturnedNoRows),
     Err(e) => Err(e),
   }
 }
