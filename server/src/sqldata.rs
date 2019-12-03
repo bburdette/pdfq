@@ -26,7 +26,7 @@ use sqldata;
 */
 
 #[derive(Serialize, Debug)]
-struct PdfList {
+pub struct PdfList {
   pdfs: Vec<PdfInfo>,
 }
 
@@ -34,7 +34,7 @@ struct PdfList {
 pub struct PdfInfo {
   last_read: Option<i64>,
   filename: String,
-  state: Option<PersistentState>,
+  state: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -44,7 +44,7 @@ struct PdfNotes {
   // page_notes: map int -> string,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+/*#[derive(Deserialize, Serialize, Debug)]
 struct PersistentState {
   pdf_name: String,
   zoom: f32,
@@ -52,15 +52,7 @@ struct PersistentState {
   page_count: i32,
   last_read: i64,
 }
-
-#[derive(Debug)]
-struct Person {
-  id: i32,
-  name: String,
-  time_created: Timespec,
-  data: Option<Vec<u8>>,
-}
-
+*/
 pub fn pdfdb(dbfile: &Path) -> rusqlite::Result<()> {
   let conn = Connection::open(dbfile)?;
 
@@ -71,7 +63,7 @@ pub fn pdfdb(dbfile: &Path) -> rusqlite::Result<()> {
       "CREATE TABLE pdfinfo ( 
                   name            TEXT NOT NULL PRIMARY KEY,
                   last_read       INTEGER,
-                  persistentState BLOB,
+                  persistentState TEXT,
                   notes           TEXT NOT NULL
                   )",
       params![],
@@ -83,8 +75,6 @@ pub fn pdfdb(dbfile: &Path) -> rusqlite::Result<()> {
     filename: "blah".to_string(),
     state: None,
   };
-
-  let s: Option<PersistentState> = None;
 
   conn.execute(
     "INSERT INTO pdfinfo (name, last_read, persistentState, notes)
@@ -98,8 +88,6 @@ pub fn pdfdb(dbfile: &Path) -> rusqlite::Result<()> {
       filename: row.get(0)?,
       last_read: row.get(1)?,
       state: None,
-      // state: row.get(2)?,
-      // notes: row.get(3)?,
     })
   })?;
 
@@ -108,6 +96,35 @@ pub fn pdfdb(dbfile: &Path) -> rusqlite::Result<()> {
   }
 
   Ok(())
+}
+
+pub fn pdflist(dbfile: &Path) -> rusqlite::Result<PdfList> {
+  let conn = Connection::open(dbfile)?;
+
+  let mut pstmt = conn.prepare("SELECT name, last_read, persistentState FROM pdfinfo")?;
+  let pdfinfo_iter = pstmt.query_map(params![], |row| {
+    Ok(PdfInfo {
+      filename: row.get(0)?,
+      last_read: row.get(1)?,
+      state: row.get(2)?,
+    })
+  })?;
+
+  // let mut pl = PdfList { pdfs = [] };
+
+  let mut pv = Vec::new();
+
+  for rspdfinfo in pdfinfo_iter {
+    match rspdfinfo {
+      Ok(pdfinfo) => {
+        println!("Found pdfinfo {:?}", pdfinfo);
+        pv.push(pdfinfo);
+      }
+      Err(_) => (),
+    }
+  }
+
+  Ok(PdfList { pdfs: pv })
 }
 
 pub fn dbinit(dbfile: &Path) -> rusqlite::Result<()> {
@@ -144,7 +161,7 @@ pub fn pdfentries(dbfile: &Path, pdfinfo: std::vec::Vec<PdfInfo>) -> rusqlite::R
       Ok(name) => nameset.insert(name),
       _ => false,
     };
-  };
+  }
 
   println!("names: {:?}", nameset);
 
@@ -156,9 +173,7 @@ pub fn pdfentries(dbfile: &Path, pdfinfo: std::vec::Vec<PdfInfo>) -> rusqlite::R
                       VALUES (?1, ?2, ?3, '')",
         params![pi.filename, pi.last_read, ""],
       )?;
-
     }
-    
   }
 
   // for each pdfinfo
@@ -208,45 +223,4 @@ pub fn pdfscan(pdfdir: &str) -> Result<std::vec::Vec<PdfInfo>, Box<Error>> {
   }
 
   Ok(v)
-}
-
-pub fn peeps() -> rusqlite::Result<()> {
-  let conn = Connection::open_in_memory()?;
-
-  conn.execute(
-    "CREATE TABLE person (
-                  id              INTEGER PRIMARY KEY,
-                  name            TEXT NOT NULL,
-                  time_created    TEXT NOT NULL,
-                  data            BLOB
-                  )",
-    params![],
-  )?;
-  let me = Person {
-    id: 0,
-    name: "Steven".to_string(),
-    time_created: time::get_time(),
-    data: None,
-  };
-  conn.execute(
-    "INSERT INTO person (name, time_created, data)
-                  VALUES (?1, ?2, ?3)",
-    params![me.name, me.time_created, me.data],
-  )?;
-
-  let mut stmt = conn.prepare("SELECT id, name, time_created, data FROM person")?;
-  let person_iter = stmt.query_map(params![], |row| {
-    Ok(Person {
-      id: row.get(0)?,
-      name: row.get(1)?,
-      time_created: row.get(2)?,
-      data: row.get(3)?,
-    })
-  })?;
-
-  for person in person_iter {
-    println!("Found person {:?}", person.unwrap());
-  }
-
-  Ok(())
 }

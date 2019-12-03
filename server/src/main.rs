@@ -41,7 +41,7 @@ pub struct Config {
   pdfdir: String,
   statedir: String,
   createdirs: bool,
-  sqldb: String,
+  pdfdb: String,
 }
 
 fn files(req: &HttpRequest) -> Result<NamedFile> {
@@ -114,10 +114,12 @@ fn public(
   let ci = req.connection_info().clone();
   let pd = state.pdfdir.clone();
   let sd = state.statedir.clone();
+  let pdb = state.pdfdb.clone();
 
   match process_json::process_public_json(
-    sd.as_str(),
     pd.as_str(),
+    pdb.as_str(),
+    sd.as_str(),
     &(ci.remote()),
     item.into_inner(),
   ) {
@@ -140,7 +142,7 @@ fn defcon() -> Config {
     pdfdir: "./pdfs".to_string(),
     statedir: "./state".to_string(),
     createdirs: false,
-    sqldb: "./pdf.db".to_string(),
+    pdfdb: "./pdf.db".to_string(),
   }
 }
 
@@ -173,35 +175,25 @@ fn err_main() -> Result<(), std::io::Error> {
 
   let config = load_config();
 
-  let sqldbp = Path::new(&config.sqldb);
+  let pdfdbp = Path::new(&config.pdfdb);
 
-  if !sqldbp.exists() {
-    sqldata::dbinit(sqldbp);
+  if !pdfdbp.exists() {
+    sqldata::dbinit(pdfdbp);
   }
 
-  let pdfs = sqldata::pdfscan(&config.pdfdir).map_err(|_| {
-    std::io::Error::new(
-      std::io::ErrorKind::NotFound,
-      "make a better error!",
-    )
-  })?;
+  let pdfs = sqldata::pdfscan(&config.pdfdir)
+    .map_err(|_| std::io::Error::new(std::io::ErrorKind::NotFound, "make a better error!"))?;
 
-  println!("pdfdb: {:?}", sqldata::pdfentries(&sqldbp, pdfs));
+  println!("pdfdb: {:?}", sqldata::pdfentries(&pdfdbp, pdfs));
 
   if config.createdirs {
     std::fs::create_dir_all(config.pdfdir.clone())?;
-    std::fs::create_dir_all(config.statedir.clone())?;
+    // std::fs::create_dir_all(config.statedir.clone())?;
   } else {
     if !Path::new(&config.pdfdir).exists() {
       Err(std::io::Error::new(
         std::io::ErrorKind::NotFound,
         "pdfdir not found!",
-      ))?
-    }
-    if !Path::new(&config.statedir).exists() {
-      Err(std::io::Error::new(
-        std::io::ErrorKind::NotFound,
-        "statedir not found!",
       ))?
     }
   }
