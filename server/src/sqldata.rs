@@ -11,19 +11,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use time::Timespec;
 use util;
-/*
-// use std::fs::File;
-// use std::io::Read;
-extern crate serde_json;
-use serde_json::Value;
-use simple_error;
-use std::convert::TryInto;
-use std::error::Error;
-use std::path::{Path, PathBuf};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use util;
-use sqldata;
-*/
+
 
 #[derive(Serialize, Debug, Clone)]
 pub struct PdfInfo {
@@ -101,8 +89,6 @@ pub fn pdfupret(
   for pi in dbpdfs {
     dbmap.insert(pi.filename.clone(), pi);
   }
-
-  // println!("names: {:?}", nameset);
 
   let mut out = Vec::new();
 
