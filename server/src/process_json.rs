@@ -2,6 +2,7 @@ extern crate serde_json;
 use serde_json::Value;
 use simple_error;
 use sqldata;
+use sqldata::{PdfList, PdfInfo};
 use std::convert::TryInto;
 use std::error::Error;
 use std::fs::File;
@@ -30,31 +31,15 @@ pub struct ServerResponse {
   pub content: Value,
 }
 
-#[derive(Serialize, Debug)]
-struct PdfList {
-  pdfs: Vec<PdfInfo>,
-}
-
-#[derive(Serialize, Debug)]
-struct PdfInfo {
-  last_read: Option<i64>,
-  filename: String,
-  state: Option<PersistentState>,
-}
-
 #[derive(Serialize, Deserialize, Debug)]
 struct PdfNotes {
   pdf_name: String,
   notes: String,
-  // page_notes: map int -> string,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 struct PersistentState {
   pdf_name: String,
-  zoom: f32,
-  page: i32,
-  page_count: i32,
   last_read: i64,
 }
 
@@ -82,7 +67,7 @@ pub fn process_public_json(
         .data
         .ok_or(simple_error::SimpleError::new("pdfstate data not found!"))?;
       let ps: PersistentState = serde_json::from_value(json.clone())?;
-      sqldata::savePdfState(pdbp, ps.pdf_name.as_str(), json.to_string().as_str())?;
+      sqldata::savePdfState(pdbp, ps.pdf_name.as_str(), json.to_string().as_str(), ps.last_read)?;
       Ok(Some(ServerResponse {
         what: "pdfstatesaved".to_string(),
         content: serde_json::Value::Null,

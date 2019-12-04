@@ -44,9 +44,7 @@ pub fn pdflist(dbfile: &Path) -> rusqlite::Result<PdfList> {
   let pdfinfo_iter = pstmt.query_map(params![], |row| {
     let ss: Option<String> = row.get(2)?;
     // we don't get the json parse error if there is one!
-    let state: Option<serde_json::Value> = ss.and_then(
-      |s|
-        serde_json::from_str(s.as_str()).ok());
+    let state: Option<serde_json::Value> = ss.and_then(|s| serde_json::from_str(s.as_str()).ok());
 
     Ok(PdfInfo {
       filename: row.get(0)?,
@@ -123,15 +121,19 @@ pub fn pdfentries(dbfile: &Path, pdfinfo: std::vec::Vec<PdfInfo>) -> rusqlite::R
 
   Ok(())
 }
-
-pub fn savePdfState(dbfile: &Path, pdfname: &str, pdfstate: &str) -> rusqlite::Result<()> {
+pub fn savePdfState(
+  dbfile: &Path,
+  pdfname: &str,
+  pdfstate: &str,
+  last_read: i64,
+) -> rusqlite::Result<()> {
   let conn = Connection::open(dbfile)?;
 
   println!("savePdfState {} {}", pdfname, pdfstate);
 
   conn.execute(
-    "update pdfinfo set persistentState = ?2 where name = ?1",
-    params![pdfname, pdfstate],
+    "update pdfinfo set persistentState = ?2, last_read = ?3 where name = ?1",
+    params![pdfname, pdfstate, last_read],
   )?;
 
   Ok(())
