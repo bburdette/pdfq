@@ -26,6 +26,20 @@ type Transition
     | Error String
 
 
+type SortColumn
+    = Date
+    | Name
+
+
+type Msg
+    = Noop
+    | OpenClick PdfInfo
+    | PDMsg PD.Msg
+    | SortClick SortColumn
+    | UpdatePState PersistentState
+    | ServerResponse (Result Http.Error PI.ServerResponse)
+
+
 type alias Model =
     { pdfs : List PdfInfo
     , location : String
@@ -92,11 +106,6 @@ sort model =
     }
 
 
-type SortColumn
-    = Date
-    | Name
-
-
 init : List PdfInfo -> String -> Maybe String -> ( Model, Cmd Msg )
 init pdfs location mbpdfname =
     let
@@ -128,15 +137,6 @@ openPdfCmd model pdfname =
                 (model.location ++ "/pdfs/" ++ pdfname)
         , mkPublicHttpReq model.location (PI.GetNotes pdfname)
         ]
-
-
-type Msg
-    = Noop
-    | OpenClick PdfInfo
-    | PDMsg PD.Msg
-    | SortClick SortColumn
-    | UpdatePState PersistentState
-    | ServerResponse (Result Http.Error PI.ServerResponse)
 
 
 view : Model -> Element Msg

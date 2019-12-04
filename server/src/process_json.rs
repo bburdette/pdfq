@@ -1,6 +1,8 @@
 extern crate serde_json;
 use serde_json::Value;
 use simple_error;
+use sqldata;
+use sqldata::PdfInfo;
 use std::convert::TryInto;
 use std::error::Error;
 use std::fs::File;
@@ -29,222 +31,139 @@ pub struct ServerResponse {
   pub content: Value,
 }
 
-#[derive(Serialize, Debug)]
-struct PdfList {
-  pdfs: Vec<PdfInfo>,
-}
-
-#[derive(Serialize, Debug)]
-struct PdfInfo {
-  last_read: Option<i64>,
-  filename: String,
-  state: Option<PersistentState>,
-}
-
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 struct PdfNotes {
-  pdf_name: String, // we only need the name!
-                    // notes: String,
-                    // page_notes: map int -> string,
+  pdf_name: String,
+  notes: String,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 struct PersistentState {
   pdf_name: String,
-  zoom: f32,
-  page: i32,
-  page_count: i32,
   last_read: i64,
 }
 
-fn pdfscan(pdfdir: &str, statedir: &str) -> Result<std::vec::Vec<PdfInfo>, Box<Error>> {
-  let p = Path::new(pdfdir);
-
-  let mut v = Vec::new();
-
-  if p.exists() {
-    for fr in p.read_dir()? {
-      let f = fr?;
-      let fname = f
-        .file_name()
-        .into_string()
-        .map_err(|e| format!("bad pdf filename: {:?}", f))?;
-
-      let spath = format!("{}/{}.state", statedir, fname);
-      let pst = Path::new(spath.as_str()).to_str().ok_or("invalid path")?;
-
-      let state: Option<PersistentState> = match util::load_string(pst) {
-        Err(_) => None,
-        Ok(s) => {
-          println!("loading state: {}", pst);
-          let ps: PersistentState = serde_json::from_str(s.as_str())?;
-          Some(ps)
-        }
-      };
-
-      v.push(PdfInfo {
-        filename: f
-          .file_name()
-          .into_string()
-          .unwrap_or("non utf filename".to_string()),
-        last_read: f
-          .metadata()
-          .and_then(|f| {
-            f.accessed().and_then(|t| {
-              let dur = t.duration_since(UNIX_EPOCH).expect("unix-epoch-error");
-              let meh: i64 = dur
-                .as_millis()
-                .try_into()
-                .expect("i64 insufficient for posix date!");
-              Ok(meh)
-            })
-          })
-          .ok(),
-        state: state,
-      });
-
-      // println!("eff {:?}", f);
-    }
-  } else {
-    error!("pdf directory not found: {}", pdfdir);
-  }
-
-  Ok(v)
+#[derive(Serialize, Debug)]
+pub struct PdfList {
+  pdfs: Vec<PdfInfo>,
 }
 
 // public json msgs don't require login.
 pub fn process_public_json(
-  statedir: &str,
   pdfdir: &str,
+  pdfdb: &str,
   ip: &Option<&str>,
   msg: PublicMessage,
 ) -> Result<Option<ServerResponse>, Box<dyn Error>> {
+  let pdbp = Path::new(&pdfdb);
   match msg.what.as_str() {
     "getfilelist" => {
-      let pl = PdfList {
-        pdfs: pdfscan(pdfdir, statedir)?,
-      };
-      // println!("pdflist: {:?}", pl);
+      // get db record info for all pdfs in the pdf dir.
+
+      // pdfs in the db.
+      let sqlpdfs = sqldata::pdflist(pdbp)?;
+      // pdfs in the dir.
+      let filepdfs = sqldata::pdfscan(&pdfdir)?;
+
+      // write records for unknown pdfs into the db, and return a list of
+      // records for only the pdfs that are in the dir.
+      let refpdfs = sqldata::pdfupret(pdbp, filepdfs, sqlpdfs)?;
+
       Ok(Some(ServerResponse {
         what: "filelist".to_string(),
-        content: serde_json::to_value(pl)?,
+        content: serde_json::to_value(PdfList { pdfs: refpdfs })?,
       }))
     }
     "savepdfstate" => {
-      // write the pdfstate to the appropriate file.
-      msg.data.map_or(
-        Ok(()),
-        (|json| {
-          let ps: PersistentState = serde_json::from_value(json.clone())?;
-          util::write_string(
-            format!("{}/{}.state", statedir, ps.pdf_name).as_str(),
-            json.to_string().as_str(),
-          )
-          .map(|_| ())
-        }),
+      // save the pdf viewer state.
+      let json = msg
+        .data
+        .ok_or(simple_error::SimpleError::new("pdfstate data not found!"))?;
+      let ps: PersistentState = serde_json::from_value(json.clone())?;
+      sqldata::savePdfState(
+        pdbp,
+        ps.pdf_name.as_str(),
+        json.to_string().as_str(),
+        ps.last_read,
       )?;
       Ok(Some(ServerResponse {
         what: "pdfstatesaved".to_string(),
         content: serde_json::Value::Null,
       }))
     }
+    "getnotes" => {
+      let json = msg
+        .data
+        .ok_or(simple_error::SimpleError::new("getnotes data not found!"))?;
+      let pdfname: String = serde_json::from_value(json.clone())?;
+      let notes = sqldata::getPdfNotes(pdbp, pdfname.as_str())?;
+      let data = serde_json::to_value(PdfNotes {
+        pdf_name: pdfname,
+        notes: notes,
+      })?;
+
+      Ok(Some(ServerResponse {
+        what: "notesresponse".to_string(),
+        content: data,
+      }))
+    }
+    "savenotes" => {
+      let json = msg
+        .data
+        .ok_or(simple_error::SimpleError::new("savenotes data not found!"))?;
+      let pdfnotes: PdfNotes = serde_json::from_value(json.clone())?;
+      sqldata::savePdfNotes(pdbp, pdfnotes.pdf_name.as_str(), pdfnotes.notes.as_str())?;
+      Ok(Some(ServerResponse {
+        what: "notesaved".to_string(),
+        content: serde_json::Value::Null,
+      }))
+    }
+    // get app state.
+    "getlaststate" => {
+      let nullstate = || {
+        Some(ServerResponse {
+          what: "laststate".to_string(),
+          content: serde_json::Value::Null,
+        })
+      };
+      sqldata::lastUiState(pdbp)
+        .map(|opss| {
+          opss
+            .and_then(|statestring| {
+              println!("statestring: {}", statestring);
+              match serde_json::from_str(statestring.as_str()) {
+                Ok(v) => {
+                  println!("json success {}", v);
+                  Some(ServerResponse {
+                    what: "laststate".to_string(),
+                    content: v,
+                  })
+                }
+                Err(e) => {
+                  println!("json fail {}", e);
+                  nullstate()
+                }
+              }
+            })
+            .or(nullstate())
+        })
+        .or_else(|e| {
+          println!("not found {}", e);
+          Ok(nullstate())
+        })
+    }
+    // save app state.
     "savelaststate" => {
-      println!("savelaststate");
-      // write the pdfstate to the appropriate file.
       msg.data.map_or(
         Ok(()),
-        (|json| {
-          util::write_string(
-            format!("{}/laststate", statedir).as_str(),
-            json.to_string().as_str(),
-          )
-          .map(|_| ())
-        }),
+        (|json| sqldata::saveUiState(pdbp, json.to_string().as_str())),
       )?;
       Ok(Some(ServerResponse {
         what: "laststatesaved".to_string(),
         content: serde_json::Value::Null,
       }))
     }
-    "getlaststate" => util::load_string(format!("{}/laststate", statedir).as_str())
-      .and_then(|statestring| {
-        println!("statestring: {}", statestring);
-        serde_json::from_str(statestring.as_str())
-          .and_then(|v| {
-            println!("json success {}", v);
-            Ok(Some(ServerResponse {
-              what: "laststate".to_string(),
-              content: v,
-            }))
-          })
-          .or_else(|e| {
-            println!("json fail {}", e);
-            Ok(Some(ServerResponse {
-              what: "laststate".to_string(),
-              content: serde_json::Value::Null,
-            }))
-          })
-      })
-      .or_else(|e| {
-        println!("not found {}", e);
-        Ok(Some(ServerResponse {
-          what: "laststate".to_string(),
-          content: serde_json::Value::Null,
-        }))
-      }),
-    "getnotes" => {
-      // read the notes file, or if none exists return null.
-      msg.data.map_or(
-        Ok(None),
-        (|json| {
-          let pdfname: String = serde_json::from_value(json.clone())?;
-          let blah = util::load_string(format!("{}/{}.notes", statedir, pdfname).as_str())
-            .and_then(|s| {
-              serde_json::from_str(s.as_str())
-                .and_then(|v| {
-                  println!("loaded");
-                  Ok(Some(ServerResponse {
-                    what: "notesresponse".to_string(),
-                    content: v,
-                  }))
-                })
-                .or_else(|e| {
-                  println!("json fail {}", e);
-                  Ok(Some(ServerResponse {
-                    what: "notesresponse".to_string(),
-                    content: serde_json::Value::Null,
-                  }))
-                })
-            })
-            .or_else(|e| {
-              println!("load fail {}", e);
-              Ok(Some(ServerResponse {
-                what: "notesresponse".to_string(),
-                content: serde_json::Value::Null,
-              }))
-            });
-          println!("blah {:?}", blah);
-          blah
-        }),
-      )
-    }
-    "savenotes" => msg.data.map_or(Ok(None), |json| {
-      let pdfnotes: PdfNotes = serde_json::from_value(json.clone())?;
-      util::write_string(
-        format!("{}/{}.notes", statedir, pdfnotes.pdf_name).as_str(),
-        json.to_string().as_str(),
-      )
-      .and_then(|_| {
-        Ok(Some(ServerResponse {
-          what: "notesaved".to_string(),
-          content: serde_json::Value::Null,
-        }))
-      })
-      .or(Ok(Some(ServerResponse {
-        what: "notessavefailed".to_string(),
-        content: serde_json::Value::Null,
-      })))
-    }),
+    // error for unsupported whats
     wat => bail!(format!("invalid 'what' code:'{}'", wat)),
   }
 }

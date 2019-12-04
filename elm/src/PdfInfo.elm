@@ -104,42 +104,14 @@ encodePersistentState state =
 type alias PdfNotes =
     { pdfName : String
     , notes : String
-    , pageNotes : Dict Int String
     }
 
 
 decodePdfNotes : JD.Decoder PdfNotes
 decodePdfNotes =
-    JD.map3 PdfNotes
+    JD.map2 PdfNotes
         (JD.field "pdf_name" JD.string)
         (JD.field "notes" JD.string)
-        (JD.field "page_notes"
-            (JD.list (JD.list JD.string)
-                |> JD.andThen
-                    (\lst ->
-                        List.foldl
-                            (\elt out ->
-                                out
-                                    |> Maybe.andThen
-                                        (\listSoFar ->
-                                            case elt of
-                                                [ key, val ] ->
-                                                    String.toInt key
-                                                        |> Maybe.map
-                                                            (\k -> ( k, val ) :: listSoFar)
-
-                                                _ ->
-                                                    Nothing
-                                        )
-                            )
-                            (Just [])
-                            lst
-                            |> Maybe.map Dict.fromList
-                            |> Maybe.map JD.succeed
-                            |> Maybe.withDefault (JD.fail "failed to parse page notes")
-                    )
-            )
-        )
 
 
 encodePdfNotes : PdfNotes -> JE.Value
@@ -147,23 +119,4 @@ encodePdfNotes pn =
     JE.object
         [ ( "pdf_name", JE.string pn.pdfName )
         , ( "notes", JE.string pn.notes )
-        , ( "page_notes"
-          , JE.list
-                (\( i, v ) -> JE.list JE.string [ String.fromInt i, v ])
-                (Dict.toList pn.pageNotes)
-          )
         ]
-
-
-testPn : PdfNotes
-testPn =
-    { pdfName = "test"
-    , notes = "test"
-    , pageNotes = Dict.fromList [ ( 1, "test" ), ( 2, "test" ), ( 3, "test" ), ( 4, "test" ) ]
-    }
-
-
-test : Result JD.Error PdfNotes
-test =
-    JD.decodeString decodePdfNotes
-        (JE.encode 2 (encodePdfNotes testPn))
