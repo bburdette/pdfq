@@ -52,7 +52,6 @@ pub struct PdfList {
 pub fn process_public_json(
   pdfdir: &str,
   pdfdb: &str,
-  statedir: &str,
   ip: &Option<&str>,
   msg: PublicMessage,
 ) -> Result<Option<ServerResponse>, Box<dyn Error>> {

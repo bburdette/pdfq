@@ -39,7 +39,6 @@ pub struct Config {
   ip: String,
   port: u16,
   pdfdir: String,
-  statedir: String,
   createdirs: bool,
   pdfdb: String,
 }
@@ -113,13 +112,11 @@ fn public(
 
   let ci = req.connection_info().clone();
   let pd = state.pdfdir.clone();
-  let sd = state.statedir.clone();
   let pdb = state.pdfdb.clone();
 
   match process_json::process_public_json(
     pd.as_str(),
     pdb.as_str(),
-    sd.as_str(),
     &(ci.remote()),
     item.into_inner(),
   ) {
@@ -140,7 +137,6 @@ fn defcon() -> Config {
     ip: "127.0.0.1".to_string(),
     port: 8000,
     pdfdir: "./pdfs".to_string(),
-    statedir: "./state".to_string(),
     createdirs: false,
     pdfdb: "./pdf.db".to_string(),
   }
