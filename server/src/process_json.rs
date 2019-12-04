@@ -108,10 +108,10 @@ pub fn process_public_json(
       }))
     }
     // get app state.
-    "getlaststate" => {
-      let ls = sqldata::lastUiState(pdbp)
-        .map(|opss| {
-          opss.and_then(|statestring| {
+    "getlaststate" => sqldata::lastUiState(pdbp)
+      .map(|opss| {
+        opss
+          .and_then(|statestring| {
             println!("statestring: {}", statestring);
             match serde_json::from_str(statestring.as_str()) {
               Ok(v) => {
@@ -129,21 +129,19 @@ pub fn process_public_json(
                 })
               }
             }
-          }).or(Some(ServerResponse {
+          })
+          .or(Some(ServerResponse {
             what: "laststate".to_string(),
             content: serde_json::Value::Null,
           }))
-        })
-        .or_else(|e| {
-          println!("not found {}", e);
-          Ok(Some(ServerResponse {
-            what: "laststate".to_string(),
-            content: serde_json::Value::Null,
-          }))
-        });
-      println!("ls: {:?}", ls);
-      ls
-    }
+      })
+      .or_else(|e| {
+        println!("not found {}", e);
+        Ok(Some(ServerResponse {
+          what: "laststate".to_string(),
+          content: serde_json::Value::Null,
+        }))
+      }),
     // save app state.
     "savelaststate" => {
       msg.data.map_or(
