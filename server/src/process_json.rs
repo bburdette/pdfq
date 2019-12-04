@@ -2,7 +2,7 @@ extern crate serde_json;
 use serde_json::Value;
 use simple_error;
 use sqldata;
-use sqldata::{PdfList, PdfInfo};
+use sqldata::{PdfInfo, PdfList};
 use std::convert::TryInto;
 use std::error::Error;
 use std::fs::File;
@@ -67,7 +67,12 @@ pub fn process_public_json(
         .data
         .ok_or(simple_error::SimpleError::new("pdfstate data not found!"))?;
       let ps: PersistentState = serde_json::from_value(json.clone())?;
-      sqldata::savePdfState(pdbp, ps.pdf_name.as_str(), json.to_string().as_str(), ps.last_read)?;
+      sqldata::savePdfState(
+        pdbp,
+        ps.pdf_name.as_str(),
+        json.to_string().as_str(),
+        ps.last_read,
+      )?;
       Ok(Some(ServerResponse {
         what: "pdfstatesaved".to_string(),
         content: serde_json::Value::Null,
@@ -91,8 +96,7 @@ pub fn process_public_json(
       }))
       // read the notes file, or if none exists return null.
     }
-    "savenotes" =>
-    {
+    "savenotes" => {
       let json = msg
         .data
         .ok_or(simple_error::SimpleError::new("savenotes data not found!"))?;
@@ -104,45 +108,47 @@ pub fn process_public_json(
       }))
     }
     // get app state.
-    "getlaststate" => util::load_string(format!("{}/laststate", statedir).as_str())
-      .and_then(|statestring| {
-        println!("statestring: {}", statestring);
-        serde_json::from_str(statestring.as_str())
-          .and_then(|v| {
-            println!("json success {}", v);
-            Ok(Some(ServerResponse {
-              what: "laststate".to_string(),
-              content: v,
-            }))
-          })
-          .or_else(|e| {
-            println!("json fail {}", e);
-            Ok(Some(ServerResponse {
-              what: "laststate".to_string(),
-              content: serde_json::Value::Null,
-            }))
-          })
-      })
-      .or_else(|e| {
-        println!("not found {}", e);
-        Ok(Some(ServerResponse {
-          what: "laststate".to_string(),
-          content: serde_json::Value::Null,
-        }))
-      }),
+    "getlaststate" => {
+      let ls = sqldata::lastUiState(pdbp)
+        .map(|opss| {
+          opss.and_then(|statestring| {
+            println!("statestring: {}", statestring);
+            match serde_json::from_str(statestring.as_str()) {
+              Ok(v) => {
+                println!("json success {}", v);
+                Some(ServerResponse {
+                  what: "laststate".to_string(),
+                  content: v,
+                })
+              }
+              Err(e) => {
+                println!("json fail {}", e);
+                Some(ServerResponse {
+                  what: "laststate".to_string(),
+                  content: serde_json::Value::Null,
+                })
+              }
+            }
+          }).or(Some(ServerResponse {
+            what: "laststate".to_string(),
+            content: serde_json::Value::Null,
+          }))
+        })
+        .or_else(|e| {
+          println!("not found {}", e);
+          Ok(Some(ServerResponse {
+            what: "laststate".to_string(),
+            content: serde_json::Value::Null,
+          }))
+        });
+      println!("ls: {:?}", ls);
+      ls
+    }
     // save app state.
     "savelaststate" => {
-      println!("savelaststate");
-      // write the pdfstate to the appropriate file.
       msg.data.map_or(
         Ok(()),
-        (|json| {
-          util::write_string(
-            format!("{}/laststate", statedir).as_str(),
-            json.to_string().as_str(),
-          )
-          .map(|_| ())
-        }),
+        (|json| sqldata::saveUiState(pdbp, json.to_string().as_str())),
       )?;
       Ok(Some(ServerResponse {
         what: "laststatesaved".to_string(),
@@ -153,4 +159,3 @@ pub fn process_public_json(
     wat => bail!(format!("invalid 'what' code:'{}'", wat)),
   }
 }
-

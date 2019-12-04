@@ -83,8 +83,17 @@ pub fn dbinit(dbfile: &Path) -> rusqlite::Result<()> {
                   )",
       params![],
     )
-  );
 
+
+
+  );
+  conn.execute(
+    "CREATE TABLE uistate (
+                id          INTEGER NOT NULL PRIMARY KEY,
+                state       TEXT NOT NULL
+                )",
+    params![],
+  );
   Ok(())
 }
 
@@ -121,6 +130,33 @@ pub fn pdfentries(dbfile: &Path, pdfinfo: std::vec::Vec<PdfInfo>) -> rusqlite::R
 
   Ok(())
 }
+
+pub fn saveUiState(
+  dbfile: &Path,
+  state: &str) -> rusqlite::Result<()> {
+  let conn = Connection::open(dbfile)?;
+
+  conn.execute(
+    "INSERT INTO uistate(id,state) VALUES(1, ?1)
+    ON CONFLICT(id) DO UPDATE SET state=excluded.state",
+    params![state])?;
+
+  Ok(())
+}
+
+pub fn lastUiState(dbfile: &Path) -> rusqlite::Result<Option<String>> {
+  let conn = Connection::open(dbfile)?;
+
+  let mut pstmt = conn.prepare("SELECT state FROM uistate WHERE id = 1")?;
+  let mut rows = pstmt.query(params![])?;
+
+  match rows.next() {
+    Ok(Some(row)) => row.get(0),
+    Ok(None) => Ok(None),
+    Err(e) => Err(e),
+  }
+}
+
 pub fn savePdfState(
   dbfile: &Path,
   pdfname: &str,
