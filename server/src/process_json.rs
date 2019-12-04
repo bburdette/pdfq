@@ -2,7 +2,7 @@ extern crate serde_json;
 use serde_json::Value;
 use simple_error;
 use sqldata;
-use sqldata::{PdfInfo};
+use sqldata::PdfInfo;
 use std::convert::TryInto;
 use std::error::Error;
 use std::fs::File;
@@ -58,11 +58,12 @@ pub fn process_public_json(
   let pdbp = Path::new(&pdfdb);
   match msg.what.as_str() {
     "getfilelist" => {
+      // get db record info for all pdfs in the pdf dir.
+
       // pdfs in the db.
       let sqlpdfs = sqldata::pdflist(pdbp)?;
       // pdfs in the dir.
-      let filepdfs = sqldata::pdfscan(&pdfdir)
-        .map_err(|_| std::io::Error::new(std::io::ErrorKind::NotFound, "make a better error!"))?;
+      let filepdfs = sqldata::pdfscan(&pdfdir)?;
 
       // write records for unknown pdfs into the db, and return a list of
       // records for only the pdfs that are in the dir.
@@ -74,7 +75,7 @@ pub fn process_public_json(
       }))
     }
     "savepdfstate" => {
-      // write the pdfstate to the appropriate file.
+      // save the pdf viewer state.
       let json = msg
         .data
         .ok_or(simple_error::SimpleError::new("pdfstate data not found!"))?;
@@ -105,7 +106,6 @@ pub fn process_public_json(
         what: "notesresponse".to_string(),
         content: data,
       }))
-      // read the notes file, or if none exists return null.
     }
     "savenotes" => {
       let json = msg
@@ -119,40 +119,39 @@ pub fn process_public_json(
       }))
     }
     // get app state.
-    "getlaststate" => sqldata::lastUiState(pdbp)
-      .map(|opss| {
-        opss
-          .and_then(|statestring| {
-            println!("statestring: {}", statestring);
-            match serde_json::from_str(statestring.as_str()) {
-              Ok(v) => {
-                println!("json success {}", v);
-                Some(ServerResponse {
-                  what: "laststate".to_string(),
-                  content: v,
-                })
-              }
-              Err(e) => {
-                println!("json fail {}", e);
-                Some(ServerResponse {
-                  what: "laststate".to_string(),
-                  content: serde_json::Value::Null,
-                })
-              }
-            }
-          })
-          .or(Some(ServerResponse {
-            what: "laststate".to_string(),
-            content: serde_json::Value::Null,
-          }))
-      })
-      .or_else(|e| {
-        println!("not found {}", e);
-        Ok(Some(ServerResponse {
+    "getlaststate" => {
+      let nullstate = || {
+        Some(ServerResponse {
           what: "laststate".to_string(),
           content: serde_json::Value::Null,
-        }))
-      }),
+        })
+      };
+      sqldata::lastUiState(pdbp)
+        .map(|opss| {
+          opss
+            .and_then(|statestring| {
+              println!("statestring: {}", statestring);
+              match serde_json::from_str(statestring.as_str()) {
+                Ok(v) => {
+                  println!("json success {}", v);
+                  Some(ServerResponse {
+                    what: "laststate".to_string(),
+                    content: v,
+                  })
+                }
+                Err(e) => {
+                  println!("json fail {}", e);
+                  nullstate()
+                }
+              }
+            })
+            .or(nullstate())
+        })
+        .or_else(|e| {
+          println!("not found {}", e);
+          Ok(nullstate())
+        })
+    }
     // save app state.
     "savelaststate" => {
       msg.data.map_or(
