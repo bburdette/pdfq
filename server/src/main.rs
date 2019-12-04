@@ -181,14 +181,8 @@ fn err_main() -> Result<(), std::io::Error> {
     sqldata::dbinit(pdfdbp);
   }
 
-  let pdfs = sqldata::pdfscan(&config.pdfdir)
-    .map_err(|_| std::io::Error::new(std::io::ErrorKind::NotFound, "make a better error!"))?;
-
-  println!("pdfdb: {:?}", sqldata::pdfentries(&pdfdbp, pdfs));
-
   if config.createdirs {
     std::fs::create_dir_all(config.pdfdir.clone())?;
-    // std::fs::create_dir_all(config.statedir.clone())?;
   } else {
     if !Path::new(&config.pdfdir).exists() {
       Err(std::io::Error::new(

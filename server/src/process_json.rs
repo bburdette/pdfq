@@ -2,7 +2,7 @@ extern crate serde_json;
 use serde_json::Value;
 use simple_error;
 use sqldata;
-use sqldata::{PdfInfo, PdfList};
+use sqldata::{PdfInfo};
 use std::convert::TryInto;
 use std::error::Error;
 use std::fs::File;
@@ -43,6 +43,11 @@ struct PersistentState {
   last_read: i64,
 }
 
+#[derive(Serialize, Debug)]
+pub struct PdfList {
+  pdfs: Vec<PdfInfo>,
+}
+
 // public json msgs don't require login.
 pub fn process_public_json(
   pdfdir: &str,
@@ -54,11 +59,19 @@ pub fn process_public_json(
   let pdbp = Path::new(&pdfdb);
   match msg.what.as_str() {
     "getfilelist" => {
-      let pl = sqldata::pdflist(pdbp)?;
-      // println!("pdflist: {:?}", pl);
+      // pdfs in the db.
+      let sqlpdfs = sqldata::pdflist(pdbp)?;
+      // pdfs in the dir.
+      let filepdfs = sqldata::pdfscan(&pdfdir)
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::NotFound, "make a better error!"))?;
+
+      // write records for unknown pdfs into the db, and return a list of
+      // records for only the pdfs that are in the dir.
+      let refpdfs = sqldata::pdfupret(pdbp, filepdfs, sqlpdfs)?;
+
       Ok(Some(ServerResponse {
         what: "filelist".to_string(),
-        content: serde_json::to_value(pl)?,
+        content: serde_json::to_value(PdfList { pdfs: refpdfs })?,
       }))
     }
     "savepdfstate" => {
@@ -89,7 +102,6 @@ pub fn process_public_json(
         notes: notes,
       })?;
 
-      println!("getnotes: {}", data);
       Ok(Some(ServerResponse {
         what: "notesresponse".to_string(),
         content: data,

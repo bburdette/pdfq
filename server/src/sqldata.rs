@@ -2,7 +2,7 @@
 use rusqlite::types::ToSql;
 use rusqlite::{params, Connection, NO_PARAMS};
 use serde_json;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::convert::TryInto;
 use std::error::Error;
 use std::fs::File;
@@ -25,19 +25,14 @@ use util;
 use sqldata;
 */
 
-#[derive(Serialize, Debug)]
-pub struct PdfList {
-  pdfs: Vec<PdfInfo>,
-}
-
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, Clone)]
 pub struct PdfInfo {
   last_read: Option<i64>,
   filename: String,
   state: Option<serde_json::Value>,
 }
 
-pub fn pdflist(dbfile: &Path) -> rusqlite::Result<PdfList> {
+pub fn pdflist(dbfile: &Path) -> rusqlite::Result<Vec<PdfInfo>> {
   let conn = Connection::open(dbfile)?;
 
   let mut pstmt = conn.prepare("SELECT name, last_read, persistentState FROM pdfinfo")?;
@@ -58,14 +53,13 @@ pub fn pdflist(dbfile: &Path) -> rusqlite::Result<PdfList> {
   for rspdfinfo in pdfinfo_iter {
     match rspdfinfo {
       Ok(pdfinfo) => {
-        println!("Found pdfinfo {:?}", pdfinfo);
         pv.push(pdfinfo);
       }
       Err(_) => (),
     }
   }
 
-  Ok(PdfList { pdfs: pv })
+  Ok(pv)
 }
 
 pub fn dbinit(dbfile: &Path) -> rusqlite::Result<()> {
@@ -83,9 +77,6 @@ pub fn dbinit(dbfile: &Path) -> rusqlite::Result<()> {
                   )",
       params![],
     )
-
-
-
   );
   conn.execute(
     "CREATE TABLE uistate (
@@ -95,6 +86,44 @@ pub fn dbinit(dbfile: &Path) -> rusqlite::Result<()> {
     params![],
   );
   Ok(())
+}
+
+// create entries in the db for pdfs that aren't in there yet.
+// then return a list of entries for pdfs that are in the dir.
+pub fn pdfupret(
+  dbfile: &Path,
+  filepdfs: std::vec::Vec<PdfInfo>,
+  dbpdfs: std::vec::Vec<PdfInfo>,
+) -> rusqlite::Result<std::vec::Vec<PdfInfo>> {
+  let conn = Connection::open(dbfile)?;
+
+  let mut dbmap: BTreeMap<String, PdfInfo> = BTreeMap::new();
+  for pi in dbpdfs {
+    dbmap.insert(pi.filename.clone(), pi);
+  }
+
+  // println!("names: {:?}", nameset);
+
+  let mut out = Vec::new();
+
+  for pi in filepdfs {
+    match dbmap.get(&pi.filename) {
+      Some(dbpi) => {
+        out.push(dbpi.clone());
+      }
+      None => {
+        println!("adding pdf: {}", pi.filename);
+        conn.execute(
+          "INSERT INTO pdfinfo (name, last_read, persistentState, notes)
+                      VALUES (?1, ?2, ?3, '')",
+          params![pi.filename, pi.last_read, ""],
+        )?;
+        out.push(pi.clone());
+      }
+    }
+  }
+
+  Ok(out)
 }
 
 // create entries in the db for pdfs that aren't in there yet.
@@ -126,20 +155,17 @@ pub fn pdfentries(dbfile: &Path, pdfinfo: std::vec::Vec<PdfInfo>) -> rusqlite::R
     }
   }
 
-  // for each pdfinfo
-
   Ok(())
 }
 
-pub fn saveUiState(
-  dbfile: &Path,
-  state: &str) -> rusqlite::Result<()> {
+pub fn saveUiState(dbfile: &Path, state: &str) -> rusqlite::Result<()> {
   let conn = Connection::open(dbfile)?;
 
   conn.execute(
     "INSERT INTO uistate(id,state) VALUES(1, ?1)
     ON CONFLICT(id) DO UPDATE SET state=excluded.state",
-    params![state])?;
+    params![state],
+  )?;
 
   Ok(())
 }
@@ -233,8 +259,6 @@ pub fn pdfscan(pdfdir: &str) -> Result<std::vec::Vec<PdfInfo>, Box<Error>> {
           .ok(),
         state: None,
       });
-
-      // println!("eff {:?}", f);
     }
   } else {
     error!("pdf directory not found: {}", pdfdir);
