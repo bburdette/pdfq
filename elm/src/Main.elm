@@ -118,6 +118,9 @@ update msg model =
                 OD.Dialog dm ->
                     ( { model | page = OpenDialog dm }, Cmd.none )
 
+                OD.DialogCmd dm cmd ->
+                    ( { model | page = OpenDialog dm }, Cmd.map OpenDialogMsg cmd )
+
                 OD.Return dm ->
                     ( { model | page = List dm }, Cmd.none )
 

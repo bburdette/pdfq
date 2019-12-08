@@ -8,7 +8,12 @@ import Element.Border as EB
 import Element.Events as EE
 import Element.Font as EF
 import Element.Input as EI
+import File
+import File.Select as FS
 import Html exposing (Html)
+import Html.Events as HE
+import Http
+import Json.Decode as JD
 import PdfDoc as PD
 import PdfElement
 import PdfInfo exposing (PdfNotes, PersistentState)
@@ -18,6 +23,7 @@ import Util
 
 type Transition prevmodel
     = Dialog (Model prevmodel)
+    | DialogCmd (Model prevmodel) (Cmd Msg)
     | Return prevmodel
 
 
@@ -25,6 +31,8 @@ type Msg
     = FileClick
     | UrlClick
     | UrlChanged String
+    | PdfOpened File.File
+    | PdfUrlOpened (Result Http.Error String)
     | Cancel
     | Noop
 
@@ -49,11 +57,22 @@ update msg model =
     case msg of
         FileClick ->
             -- Cmd for file open
-            Return model.prevModel
+            DialogCmd model (FS.file [ "application/pdf" ] PdfOpened)
+
+        PdfOpened _ ->
+            Dialog model
+
+        PdfUrlOpened _ ->
+            Dialog model
 
         UrlClick ->
             -- server message for downloading pdf?
-            Dialog model
+            DialogCmd model
+                (Http.get
+                    { url = model.pdfUrl
+                    , expect = Http.expectString PdfUrlOpened
+                    }
+                )
 
         UrlChanged url ->
             Dialog { model | pdfUrl = url }
@@ -100,6 +119,14 @@ dialogView model =
         , EBg.color <| E.rgb 1 1 1
         , E.paddingXY 10 10
         , E.spacing 5
+        , E.htmlAttribute <|
+            HE.custom "click"
+                (JD.succeed
+                    { message = Noop
+                    , stopPropagation = True
+                    , preventDefault = True
+                    }
+                )
         ]
         [ E.row
             [ E.spacing 5 ]
