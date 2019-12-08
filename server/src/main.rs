@@ -13,35 +13,34 @@ extern crate toml;
 extern crate uuid;
 #[macro_use]
 extern crate log;
+extern crate rusqlite;
+#[macro_use]
+extern crate serde_derive;
+
+mod process_json;
+mod sqldata;
+mod util;
 
 use actix_files::NamedFile;
 use actix_web::http::{Method, StatusCode};
 use actix_web::middleware::Logger;
-// use actix_web::Binary;
 use actix_web::{
   http, middleware, web, App, HttpMessage, HttpRequest, HttpResponse, HttpServer, Responder, Result,
 };
-// use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
-
-#[macro_use]
-extern crate serde_derive;
-
 use futures::future::Future;
+use json::JsonValue;
+use process_json::{process_public_json, PublicMessage, ServerResponse};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 use std::time::SystemTime;
-mod process_json;
-mod util;
-use json::JsonValue;
-use process_json::{process_public_json, PublicMessage, ServerResponse};
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Config {
   ip: String,
   port: u16,
   pdfdir: String,
-  statedir: String,
   createdirs: bool,
+  pdfdb: String,
 }
 
 fn files(req: &HttpRequest) -> Result<NamedFile> {
@@ -103,6 +102,7 @@ fn mainpage(state: web::Data<Config>, req: HttpRequest) -> HttpResponse {
     }
   }
 }
+
 fn public(
   state: web::Data<Config>,
   item: web::Json<PublicMessage>,
@@ -112,11 +112,11 @@ fn public(
 
   let ci = req.connection_info().clone();
   let pd = state.pdfdir.clone();
-  let sd = state.statedir.clone();
+  let pdb = state.pdfdb.clone();
 
   match process_json::process_public_json(
-    sd.as_str(),
     pd.as_str(),
+    pdb.as_str(),
     &(ci.remote()),
     item.into_inner(),
   ) {
@@ -137,8 +137,8 @@ fn defcon() -> Config {
     ip: "127.0.0.1".to_string(),
     port: 8000,
     pdfdir: "./pdfs".to_string(),
-    statedir: "./state".to_string(),
     createdirs: false,
+    pdfdb: "./pdf.db".to_string(),
   }
 }
 
@@ -171,20 +171,19 @@ fn err_main() -> Result<(), std::io::Error> {
 
   let config = load_config();
 
+  let pdfdbp = Path::new(&config.pdfdb);
+
+  if !pdfdbp.exists() {
+    sqldata::dbinit(pdfdbp);
+  }
+
   if config.createdirs {
     std::fs::create_dir_all(config.pdfdir.clone())?;
-    std::fs::create_dir_all(config.statedir.clone())?;
   } else {
     if !Path::new(&config.pdfdir).exists() {
       Err(std::io::Error::new(
         std::io::ErrorKind::NotFound,
         "pdfdir not found!",
-      ))?
-    }
-    if !Path::new(&config.statedir).exists() {
-      Err(std::io::Error::new(
-        std::io::ErrorKind::NotFound,
-        "statedir not found!",
       ))?
     }
   }

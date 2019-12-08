@@ -27,6 +27,20 @@ type Transition
     | Error String
 
 
+type SortColumn
+    = Date
+    | Name
+
+
+type Msg
+    = Noop
+    | OpenClick PdfInfo
+    | PDMsg PD.Msg
+    | SortClick SortColumn
+    | UpdatePState PersistentState
+    | ServerResponse (Result Http.Error PI.ServerResponse)
+
+
 type alias Model =
     { pdfs : List PdfInfo
     , location : String
