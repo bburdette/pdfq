@@ -35,6 +35,7 @@ type SortColumn
 type Msg
     = Noop
     | OpenClick PdfInfo
+    | NewClick
     | PDMsg PD.Msg
     | SortClick SortColumn
     | UpdatePState PersistentState
@@ -54,21 +55,6 @@ type alias Model =
 type SortDirection
     = Up
     | Down
-
-
-type SortColumn
-    = Date
-    | Name
-
-
-type Msg
-    = Noop
-    | OpenClick PdfInfo
-    | NewClick
-    | PDMsg PD.Msg
-    | SortClick SortColumn
-    | UpdatePState PersistentState
-    | ServerResponse (Result Http.Error PI.ServerResponse)
 
 
 updateState : Model -> PersistentState -> Model
