@@ -96,7 +96,15 @@ update msg model =
                     ( { model | page = List nmod }, Cmd.map ListMsg lcmd )
 
                 PL.OpenDialog nlm ->
-                    ( { model | page = OpenDialog (OD.init nlm) }, Cmd.none )
+                    ( { model
+                        | page =
+                            OpenDialog
+                                (OD.init nlm
+                                    (\m -> E.map (\_ -> ()) (PL.view m))
+                                )
+                      }
+                    , Cmd.none
+                    )
 
                 PL.Viewer vmod ->
                     addLastStateCmd

@@ -25,18 +25,22 @@ type Msg
     = FileClick
     | UrlClick
     | UrlChanged String
+    | Cancel
+    | Noop
 
 
 type alias Model prevmodel =
     { pdfUrl : String
     , prevModel : prevmodel
+    , prevRender : prevmodel -> Element ()
     }
 
 
-init : a -> Model a
-init prevmod =
+init : a -> (a -> Element ()) -> Model a
+init prevmod render =
     { pdfUrl = ""
     , prevModel = prevmod
+    , prevRender = render
     }
 
 
@@ -54,26 +58,60 @@ update msg model =
         UrlChanged url ->
             Dialog { model | pdfUrl = url }
 
+        Noop ->
+            Dialog model
+
+        Cancel ->
+            -- Cmd for file open
+            Return model.prevModel
+
 
 view : Model a -> Html Msg
 view model =
     E.layout
         [ E.height E.fill
         , E.width E.fill
+        , E.inFront (overlay model)
         ]
-    <|
-        E.column [ E.width E.fill ]
-            [ E.row
-                [ E.width E.fill
-                ]
-                [ EI.text
-                    []
-                    { onChange = UrlChanged
-                    , text = model.pdfUrl
-                    , placeholder = Nothing
-                    , label = EI.labelLeft [ EF.color <| E.rgb 1 1 1, E.centerY ] <| E.text "url"
-                    }
-                , EI.button buttonStyle { label = E.text "open url", onPress = Just UrlClick }
-                ]
-            , EI.button buttonStyle { label = E.text "open file", onPress = Just FileClick }
+        (model.prevRender model.prevModel
+            |> E.map (\_ -> Noop)
+        )
+
+
+overlay : Model a -> Element Msg
+overlay model =
+    E.column
+        [ E.height E.fill
+        , E.width E.fill
+        , EBg.color <| E.rgba 0.5 0.5 0.5 0.5
+        , E.inFront (dialogView model)
+        , EE.onClick Cancel
+        ]
+        []
+
+
+dialogView : Model a -> Element Msg
+dialogView model =
+    E.column
+        [ EB.color <| E.rgb 0 0 0
+        , E.centerX
+        , E.centerY
+        , EB.width 5
+        , EBg.color <| E.rgb 1 1 1
+        , E.paddingXY 10 10
+        , E.spacing 5
+        ]
+        [ E.row
+            [ E.spacing 5 ]
+            [ EI.text
+                []
+                { onChange = UrlChanged
+                , text = model.pdfUrl
+                , placeholder = Nothing
+                , label =
+                    EI.labelLeft [ E.centerY ] <|
+                        EI.button buttonStyle { label = E.text "open url:", onPress = Just UrlClick }
+                }
             ]
+        , EI.button buttonStyle { label = E.text "open file", onPress = Just FileClick }
+        ]
