@@ -2,7 +2,7 @@ module PublicInterface exposing (..)
 
 import Json.Decode as JD
 import Json.Encode as JE
-import PdfInfo exposing (LastState(..))
+import PdfInfo exposing (LastState(..), PdfOpened)
 
 
 type SendMsg
@@ -11,6 +11,7 @@ type SendMsg
     | GetNotes String
     | SaveNotes PdfInfo.PdfNotes
     | SaveLastState LastState
+    | SavePdf PdfOpened
     | GetLastState
 
 
@@ -36,6 +37,12 @@ encodeSendMsg sm =
             JE.object
                 [ ( "what", JE.string "savepdfstate" )
                 , ( "data", state )
+                ]
+
+        SavePdf po ->
+            JE.object
+                [ ( "what", JE.string "savepdf" )
+                , ( "data", PdfInfo.encodePdfOpened po )
                 ]
 
         GetNotes pdfName ->
@@ -87,6 +94,9 @@ decodeServerResponse =
 
                     "pdfstatesaved" ->
                         JD.succeed PdfStateSaved
+
+                    "pdfsaved" ->
+                        JD.succeed Noop
 
                     "notesresponse" ->
                         JD.map NotesResponse

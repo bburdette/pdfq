@@ -12,7 +12,7 @@ import Http
 import Json.Decode as JD
 import Json.Encode as JE
 import PdfDoc as PD
-import PdfInfo exposing (PdfInfo, PersistentState)
+import PdfInfo exposing (PdfInfo, PdfOpened, PersistentState)
 import PdfViewer as PV
 import PublicInterface as PI
 import Time
@@ -75,6 +75,17 @@ updateState model state =
                     )
                     model.pdfs
         }
+
+
+addPdf : Model -> PdfOpened -> Transition
+addPdf model po =
+    List <|
+        sort
+            { model
+                | pdfs =
+                    PdfInfo po.now po.pdfName Nothing
+                        :: model.pdfs
+            }
 
 
 flipDirection : SortDirection -> SortDirection

@@ -122,7 +122,12 @@ update msg model =
                     ( { model | page = OpenDialog dm }, Cmd.map OpenDialogMsg cmd )
 
                 OD.Return dm mbpdfopened ->
-                    ( { model | page = List dm }, Cmd.none )
+                    case mbpdfopened of
+                        Just pdfsave ->
+                            ( { model | page = List dm }, mkPublicHttpReq model.location (PI.SavePdf pdfsave) )
+
+                        Nothing ->
+                            ( { model | page = List dm }, Cmd.none )
 
                 OD.Error dm errstring ->
                     ( { model | page = ErrorView <| EV.init errstring (OpenDialog dm) }, Cmd.none )

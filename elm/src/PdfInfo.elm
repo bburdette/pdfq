@@ -125,4 +125,22 @@ encodePdfNotes pn =
 type alias PdfOpened =
     { pdfName : String
     , pdfDoc : String
+    , now : Time.Posix
     }
+
+
+
+{- decodePdfOpened : JD.Decoder PdfOpened
+   decodePdfOpened =
+       JD.map2 PdfOpened
+           (JD.field "pdf_name" JD.string)
+           (JD.field "pdf_string" JD.string)
+-}
+
+
+encodePdfOpened : PdfOpened -> JE.Value
+encodePdfOpened po =
+    JE.object
+        [ ( "pdf_name", JE.string po.pdfName )
+        , ( "pdf_string", JE.string po.pdfDoc )
+        ]

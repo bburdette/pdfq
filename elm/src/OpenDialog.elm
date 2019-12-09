@@ -17,6 +17,7 @@ import Json.Decode as JD
 import PdfDoc as PD
 import PdfElement
 import PdfInfo as PI exposing (PdfNotes, PersistentState)
+import Task
 import Time
 import Util
 
@@ -34,6 +35,7 @@ type Msg
     | UrlChanged String
     | PdfOpened File.File
     | PdfUrlOpened (Result Http.Error String)
+    | PdfOpTime PI.PdfOpened
     | Cancel
     | Noop
 
@@ -59,22 +61,6 @@ update msg model =
         FileClick ->
             DialogCmd model (FS.file [ "application/pdf" ] PdfOpened)
 
-        PdfOpened _ ->
-            Dialog model
-
-        PdfUrlOpened rs ->
-            case rs of
-                Err e ->
-                    Error model <| Util.httpErrorString e
-
-                Ok str ->
-                    Return model.prevModel
-                        (Just
-                            { pdfName = model.pdfUrl
-                            , pdfDoc = str
-                            }
-                        )
-
         UrlClick ->
             DialogCmd model
                 (Http.get
@@ -83,6 +69,36 @@ update msg model =
                     }
                 )
 
+        PdfOpened file ->
+            DialogCmd model <|
+                Task.perform PdfOpTime
+                    (File.toString file
+                        |> Task.andThen
+                            (\filestring ->
+                                Time.now
+                                    |> Task.map
+                                        (\now ->
+                                            PI.PdfOpened (File.name file) filestring now
+                                        )
+                            )
+                    )
+
+        PdfUrlOpened rs ->
+            case rs of
+                Err e ->
+                    Error model <| Util.httpErrorString e
+
+                Ok str ->
+                    DialogCmd model
+                        (Task.perform PdfOpTime
+                            (Time.now
+                                |> Task.map (PI.PdfOpened model.pdfUrl str)
+                            )
+                        )
+
+        PdfOpTime pdfopened ->
+            Return model.prevModel (Just pdfopened)
+
         UrlChanged url ->
             Dialog { model | pdfUrl = url }
 
@@ -90,7 +106,6 @@ update msg model =
             Dialog model
 
         Cancel ->
-            -- Cmd for file open
             Return model.prevModel Nothing
 
 

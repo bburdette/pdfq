@@ -43,6 +43,12 @@ struct PersistentState {
   last_read: i64,
 }
 
+#[derive(Deserialize, Serialize, Debug)]
+struct SavePdf {
+  pdf_name: String,
+  pdf_string: String,
+}
+
 #[derive(Serialize, Debug)]
 pub struct PdfList {
   pdfs: Vec<PdfInfo>,
@@ -88,6 +94,21 @@ pub fn process_public_json(
       )?;
       Ok(Some(ServerResponse {
         what: "pdfstatesaved".to_string(),
+        content: serde_json::Value::Null,
+      }))
+    }
+    "savepdf" => {
+      println!("savepdf");
+      // save the pdf to a file.
+      let json = msg
+        .data
+        .ok_or(simple_error::SimpleError::new("pdf data not found!"))?;
+      let ps: SavePdf = serde_json::from_value(json.clone())?;
+      println!("before writestring {}", ps.pdf_name);
+      util::write_string(ps.pdf_name.as_str(), ps.pdf_string.as_str())?;
+      println!("after writestring {}", ps.pdf_name);
+      Ok(Some(ServerResponse {
+        what: "pdfsaved".to_string(),
         content: serde_json::Value::Null,
       }))
     }
