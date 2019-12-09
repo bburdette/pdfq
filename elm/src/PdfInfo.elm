@@ -120,3 +120,9 @@ encodePdfNotes pn =
         [ ( "pdf_name", JE.string pn.pdfName )
         , ( "notes", JE.string pn.notes )
         ]
+
+
+type alias PdfOpened =
+    { pdfName : String
+    , pdfDoc : String
+    }

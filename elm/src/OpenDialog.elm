@@ -16,7 +16,7 @@ import Http
 import Json.Decode as JD
 import PdfDoc as PD
 import PdfElement
-import PdfInfo exposing (PdfNotes, PersistentState)
+import PdfInfo as PI exposing (PdfNotes, PersistentState)
 import Time
 import Util
 
@@ -24,7 +24,8 @@ import Util
 type Transition prevmodel
     = Dialog (Model prevmodel)
     | DialogCmd (Model prevmodel) (Cmd Msg)
-    | Return prevmodel
+    | Return prevmodel (Maybe PI.PdfOpened)
+    | Error (Model prevmodel) String
 
 
 type Msg
@@ -56,17 +57,25 @@ update : Msg -> Model a -> Transition a
 update msg model =
     case msg of
         FileClick ->
-            -- Cmd for file open
             DialogCmd model (FS.file [ "application/pdf" ] PdfOpened)
 
         PdfOpened _ ->
             Dialog model
 
-        PdfUrlOpened _ ->
-            Dialog model
+        PdfUrlOpened rs ->
+            case rs of
+                Err e ->
+                    Error model <| Util.httpErrorString e
+
+                Ok str ->
+                    Return model.prevModel
+                        (Just
+                            { pdfName = model.pdfUrl
+                            , pdfDoc = str
+                            }
+                        )
 
         UrlClick ->
-            -- server message for downloading pdf?
             DialogCmd model
                 (Http.get
                     { url = model.pdfUrl
@@ -82,7 +91,7 @@ update msg model =
 
         Cancel ->
             -- Cmd for file open
-            Return model.prevModel
+            Return model.prevModel Nothing
 
 
 view : Model a -> Html Msg

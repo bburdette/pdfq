@@ -121,8 +121,11 @@ update msg model =
                 OD.DialogCmd dm cmd ->
                     ( { model | page = OpenDialog dm }, Cmd.map OpenDialogMsg cmd )
 
-                OD.Return dm ->
+                OD.Return dm mbpdfopened ->
                     ( { model | page = List dm }, Cmd.none )
+
+                OD.Error dm errstring ->
+                    ( { model | page = ErrorView <| EV.init errstring (OpenDialog dm) }, Cmd.none )
 
         ( EVMsg evm, ErrorView evmod ) ->
             case EV.update evm evmod of
