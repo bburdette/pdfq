@@ -12,8 +12,7 @@ it is to go to facebook or reddit.
 pdfq in its current state is a web server.  It can't be installed with a simple `cargo install` yet.  
 To build it, you'll need yarn, parcel, elm, cargo/rustc, and (optionally) cargo-watch.
 
-First, set up a pdfq/server/config.toml.  There's one there already, change it to point at the directory where you keep pdfs.  
-A state directory is also required - its where pdfq stores your notes and UI state for each document.
+First, set up a pdfq/server/config.toml.  There's one there already, change it to point at the directory where you keep pdfs.
 
 In a terminal:
 ```
