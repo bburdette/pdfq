@@ -6,10 +6,11 @@ use sqldata::PdfInfo;
 use std::convert::TryInto;
 use std::error::Error;
 use std::fs::File;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use util;
+use base64;
 
 #[derive(Deserialize, Debug)]
 pub struct PublicMessage {
@@ -46,7 +47,7 @@ struct PersistentState {
 #[derive(Deserialize, Serialize, Debug)]
 struct SavePdf {
   pdf_name: String,
-  pdf_string: String,
+  pdf_string: String,  // base64
 }
 
 #[derive(Serialize, Debug)]
@@ -105,7 +106,11 @@ pub fn process_public_json(
         .ok_or(simple_error::SimpleError::new("pdf data not found!"))?;
       let ps: SavePdf = serde_json::from_value(json.clone())?;
       println!("before writestring {}", ps.pdf_name);
-      util::write_string(ps.pdf_name.as_str(), ps.pdf_string.as_str())?;
+      let bytes = base64::decode(ps.pdf_string.as_str())?;
+      let path = &Path::new(pdfdir).join(ps.pdf_name.as_str());
+      let mut inf = File::create(path)?;
+      inf.write(&bytes)?;
+      // util::write_string(, ps.pdf_string.as_str())?;
       println!("after writestring {}", ps.pdf_name);
       Ok(Some(ServerResponse {
         what: "pdfsaved".to_string(),

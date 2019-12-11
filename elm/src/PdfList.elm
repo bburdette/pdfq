@@ -9,8 +9,6 @@ import Element.Border as EB
 import Element.Font as EF
 import Element.Input as EI
 import Http
-import Json.Decode as JD
-import Json.Encode as JE
 import PdfDoc as PD
 import PdfInfo exposing (PdfInfo, PdfOpened, PersistentState)
 import PdfViewer as PV
@@ -77,15 +75,14 @@ updateState model state =
         }
 
 
-addPdf : Model -> PdfOpened -> Transition
+addPdf : Model -> PdfOpened -> Model
 addPdf model po =
-    List <|
-        sort
-            { model
-                | pdfs =
-                    PdfInfo po.now po.pdfName Nothing
-                        :: model.pdfs
-            }
+    sort
+        { model
+            | pdfs =
+                PdfInfo po.now po.pdfName Nothing
+                    :: model.pdfs
+        }
 
 
 flipDirection : SortDirection -> SortDirection

@@ -12,7 +12,7 @@ import OpenDialog as OD
 import PdfDoc as PD
 import PdfInfo exposing (LastState(..), PdfNotes)
 import PdfList as PL
-import PdfViewer
+import PdfViewer as PV
 import Process
 import PublicInterface as PI
 import Task
@@ -21,7 +21,7 @@ import Util
 
 
 type Page
-    = Viewer (PdfViewer.Model PL.Model)
+    = Viewer (PV.Model PL.Model)
     | List PL.Model
     | OpenDialog (OD.Model PL.Model)
     | Loading (Maybe LastState)
@@ -37,7 +37,7 @@ type alias Model =
 
 
 type Msg
-    = ViewerMsg PdfViewer.Msg
+    = ViewerMsg PV.Msg
     | ListMsg PL.Msg
     | OpenDialogMsg OD.Msg
     | PDMsg PD.Msg
@@ -57,18 +57,18 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case ( msg, model.page ) of
         ( ViewerMsg vm, Viewer mod ) ->
-            case PdfViewer.update vm mod of
-                PdfViewer.Viewer vmod ->
+            case PV.update vm mod of
+                PV.Viewer vmod ->
                     ( { model | page = Viewer vmod }, Cmd.none )
 
-                PdfViewer.ViewerPersist vmod mkpersist ->
+                PV.ViewerPersist vmod mkpersist ->
                     ( { model | page = Viewer vmod }
                     , Task.perform
                         (Now (\time -> mkPublicHttpReq model.location (PI.SavePdfState (PdfInfo.encodePersistentState (mkpersist time)))))
                         Time.now
                     )
 
-                PdfViewer.ViewerSaveNotes vmod notes ->
+                PV.ViewerSaveNotes vmod notes ->
                     ( { model
                         | page = Viewer vmod
                         , saveNotes = Dict.insert notes.pdfName ( model.saveNotesCount, notes ) model.saveNotes
@@ -80,7 +80,7 @@ update msg model =
                             (\_ -> SaveNote notes.pdfName model.saveNotesCount)
                     )
 
-                PdfViewer.List listmodel mkpstate ->
+                PV.List listmodel mkpstate ->
                     addLastStateCmd
                         ( { model | page = List listmodel }
                         , Time.now
@@ -124,7 +124,16 @@ update msg model =
                 OD.Return dm mbpdfopened ->
                     case mbpdfopened of
                         Just pdfsave ->
-                            ( { model | page = List dm }, mkPublicHttpReq model.location (PI.SavePdf pdfsave) )
+                            let
+                                nlm =
+                                    PL.addPdf dm pdfsave
+
+                                opc =
+                                    PL.openPdfCmd nlm pdfsave.pdfName
+                            in
+                            ( { model | page = List nlm }
+                            , mkPublicHttpReq model.location (PI.SavePdf pdfsave)
+                            )
 
                         Nothing ->
                             ( { model | page = List dm }, Cmd.none )
@@ -211,7 +220,7 @@ update msg model =
             --     _ =
             --         Debug.log "key: " ks
             -- in
-            update (ViewerMsg (PdfViewer.OnKeyDown ks)) model
+            update (ViewerMsg (PV.OnKeyDown ks)) model
 
         ( SaveNote pdfname count, _ ) ->
             case Dict.get pdfname model.saveNotes of
@@ -244,7 +253,7 @@ view model =
 
         Viewer mod ->
             Html.map ViewerMsg <|
-                PdfViewer.view mod
+                PV.view mod
 
         OpenDialog mod ->
             Html.map OpenDialogMsg <|

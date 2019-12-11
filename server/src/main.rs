@@ -16,6 +16,7 @@ extern crate log;
 extern crate rusqlite;
 #[macro_use]
 extern crate serde_derive;
+extern crate base64;
 
 mod process_json;
 mod sqldata;

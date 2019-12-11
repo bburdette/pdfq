@@ -1,5 +1,6 @@
 module PdfInfo exposing (..)
 
+import Base64 as B64
 import Dict exposing (Dict)
 import Json.Decode as JD
 import Json.Encode as JE
@@ -142,5 +143,5 @@ encodePdfOpened : PdfOpened -> JE.Value
 encodePdfOpened po =
     JE.object
         [ ( "pdf_name", JE.string po.pdfName )
-        , ( "pdf_string", JE.string po.pdfDoc )
+        , ( "pdf_string", JE.string (B64.encode po.pdfDoc) )
         ]
