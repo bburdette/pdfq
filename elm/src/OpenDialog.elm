@@ -35,7 +35,7 @@ type Msg
     | UrlChanged String
     | PdfOpened File.File
     | PdfUrlOpened (Result Http.Error String)
-    | PdfOpTime PI.PdfOpened
+    | PdfOpTime (Result String PI.PdfOpened)
     | Cancel
     | Noop
 
@@ -72,14 +72,19 @@ update msg model =
         PdfOpened file ->
             DialogCmd model <|
                 Task.perform PdfOpTime
-                    (File.toString file
+                    (File.toUrl file
                         |> Task.andThen
                             (\filestring ->
-                                Time.now
-                                    |> Task.map
-                                        (\now ->
-                                            PI.PdfOpened (File.name file) filestring now
-                                        )
+                                case String.split "base64," filestring of
+                                    [ _, b ] ->
+                                        Time.now
+                                            |> Task.map
+                                                (\now ->
+                                                    Ok <| PI.PdfOpened (File.name file) b now
+                                                )
+
+                                    _ ->
+                                        Task.succeed <| Err "file extraction failed"
                             )
                     )
 
@@ -92,12 +97,17 @@ update msg model =
                     DialogCmd model
                         (Task.perform PdfOpTime
                             (Time.now
-                                |> Task.map (PI.PdfOpened model.pdfUrl str)
+                                |> Task.map (\x -> Ok <| PI.PdfOpened model.pdfUrl str x)
                             )
                         )
 
         PdfOpTime pdfopened ->
-            Return model.prevModel (Just pdfopened)
+            case pdfopened of
+                Ok po ->
+                    Return model.prevModel (Just po)
+
+                Err e ->
+                    Error model e
 
         UrlChanged url ->
             Dialog { model | pdfUrl = url }

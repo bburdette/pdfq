@@ -110,7 +110,6 @@ pub fn process_public_json(
       let path = &Path::new(pdfdir).join(ps.pdf_name.as_str());
       let mut inf = File::create(path)?;
       inf.write(&bytes)?;
-      // util::write_string(, ps.pdf_string.as_str())?;
       println!("after writestring {}", ps.pdf_name);
       Ok(Some(ServerResponse {
         what: "pdfsaved".to_string(),

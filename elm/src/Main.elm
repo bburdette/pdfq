@@ -124,14 +124,7 @@ update msg model =
                 OD.Return dm mbpdfopened ->
                     case mbpdfopened of
                         Just pdfsave ->
-                            let
-                                nlm =
-                                    PL.addPdf dm pdfsave
-
-                                opc =
-                                    PL.openPdfCmd nlm pdfsave.pdfName
-                            in
-                            ( { model | page = List nlm }
+                            ( { model | page = List dm }
                             , mkPublicHttpReq model.location (PI.SavePdf pdfsave)
                             )
 
