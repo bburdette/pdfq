@@ -14,7 +14,7 @@ import PdfInfo exposing (LastState(..), PdfNotes)
 import PdfList as PL
 import PdfViewer as PV
 import Process
-import PublicInterface as PI
+import PublicInterface as PI exposing (mkPublicHttpReq)
 import Task
 import Time
 import Util
@@ -64,7 +64,7 @@ update msg model =
                 PV.ViewerPersist vmod mkpersist ->
                     ( { model | page = Viewer vmod }
                     , Task.perform
-                        (Now (\time -> mkPublicHttpReq model.location (PI.SavePdfState (PdfInfo.encodePersistentState (mkpersist time)))))
+                        (Now (\time -> mkPublicHttpReq model.location (PI.SavePdfState (PdfInfo.encodePersistentState (mkpersist time))) ServerResponse))
                         Time.now
                     )
 
@@ -99,7 +99,8 @@ update msg model =
                     ( { model
                         | page =
                             OpenDialog
-                                (OD.init nlm
+                                (OD.init model.location
+                                    nlm
                                     (\m -> E.map (\_ -> ()) (PL.view m))
                                 )
                       }
@@ -125,7 +126,7 @@ update msg model =
                     case mbpdfopened of
                         Just pdfsave ->
                             ( { model | page = List dm }
-                            , mkPublicHttpReq model.location (PI.SavePdf pdfsave)
+                            , mkPublicHttpReq model.location (PI.SavePdf pdfsave) ServerResponse
                             )
 
                         Nothing ->
@@ -190,7 +191,7 @@ update msg model =
                             case page of
                                 Loading _ ->
                                     ( { model | page = Loading ls }
-                                    , mkPublicHttpReq model.location PI.GetFileList
+                                    , mkPublicHttpReq model.location PI.GetFileList ServerResponse
                                     )
 
                                 _ ->
@@ -220,7 +221,7 @@ update msg model =
                 Just ( dictcount, pdfnotes ) ->
                     if dictcount == count then
                         -- timer expired without additional user input.  send the save msg.
-                        ( model, mkPublicHttpReq model.location (PI.SaveNotes pdfnotes) )
+                        ( model, mkPublicHttpReq model.location (PI.SaveNotes pdfnotes) ServerResponse )
 
                     else
                         -- there's a newer save reminder out there.  wait for that one instead.
@@ -270,15 +271,6 @@ type alias Flags =
     { location : String }
 
 
-mkPublicHttpReq : String -> PI.SendMsg -> Cmd Msg
-mkPublicHttpReq location msg =
-    Http.post
-        { url = location ++ "/public"
-        , body = Http.jsonBody (PI.encodeSendMsg msg)
-        , expect = Http.expectJson ServerResponse PI.decodeServerResponse
-        }
-
-
 init : Flags -> ( Model, Cmd Msg )
 init flags =
     ( { location = flags.location
@@ -286,7 +278,7 @@ init flags =
       , saveNotes = Dict.empty
       , saveNotesCount = 0
       }
-    , mkPublicHttpReq flags.location PI.GetLastState
+    , mkPublicHttpReq flags.location PI.GetLastState ServerResponse
     )
 
 
@@ -328,7 +320,7 @@ addLastStateCmd ( model, cmd ) =
         , toLastState model
             |> Maybe.map
                 (\ls ->
-                    mkPublicHttpReq model.location (PI.SaveLastState ls)
+                    mkPublicHttpReq model.location (PI.SaveLastState ls) ServerResponse
                 )
             |> Maybe.withDefault Cmd.none
         ]

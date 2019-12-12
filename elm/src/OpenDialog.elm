@@ -16,7 +16,8 @@ import Http
 import Json.Decode as JD
 import PdfDoc as PD
 import PdfElement
-import PdfInfo as PI exposing (PdfNotes, PersistentState)
+import PdfInfo as PdI exposing (PdfNotes, PersistentState)
+import PublicInterface as PI exposing (mkPublicHttpReq)
 import Task
 import Time
 import Util
@@ -25,7 +26,7 @@ import Util
 type Transition prevmodel
     = Dialog (Model prevmodel)
     | DialogCmd (Model prevmodel) (Cmd Msg)
-    | Return prevmodel (Maybe PI.PdfOpened)
+    | Return prevmodel (Maybe PdI.PdfOpened)
     | Error (Model prevmodel) String
 
 
@@ -35,7 +36,8 @@ type Msg
     | UrlChanged String
     | PdfOpened File.File
     | PdfUrlOpened (Result Http.Error String)
-    | PdfOpTime (Result String PI.PdfOpened)
+    | PdfOpTime (Result String PdI.PdfOpened)
+    | ServerResponse (Result Http.Error PI.ServerResponse)
     | Cancel
     | Noop
 
@@ -44,14 +46,16 @@ type alias Model prevmodel =
     { pdfUrl : String
     , prevModel : prevmodel
     , prevRender : prevmodel -> Element ()
+    , location : String
     }
 
 
-init : a -> (a -> Element ()) -> Model a
-init prevmod render =
+init : String -> a -> (a -> Element ()) -> Model a
+init location prevmod render =
     { pdfUrl = ""
     , prevModel = prevmod
     , prevRender = render
+    , location = location
     }
 
 
@@ -62,11 +66,15 @@ update msg model =
             DialogCmd model (FS.file [ "application/pdf" ] PdfOpened)
 
         UrlClick ->
+            -- cors won't allow it!  download on the server instead.
             DialogCmd model
-                (Http.get
-                    { url = model.pdfUrl
-                    , expect = Http.expectString PdfUrlOpened
-                    }
+                (mkPublicHttpReq model.location
+                    (PI.GetPdf
+                        { pdfName = "meh"
+                        , pdfUrl = model.pdfUrl
+                        }
+                    )
+                    ServerResponse
                 )
 
         PdfOpened file ->
@@ -80,7 +88,7 @@ update msg model =
                                         Time.now
                                             |> Task.map
                                                 (\now ->
-                                                    Ok <| PI.PdfOpened (File.name file) b now
+                                                    Ok <| PdI.PdfOpened (File.name file) b now
                                                 )
 
                                     _ ->
@@ -94,13 +102,17 @@ update msg model =
                     Error model <| Util.httpErrorString e
 
                 Ok str ->
-                    DialogCmd model
-                        (Task.perform PdfOpTime
-                            (Time.now
-                                |> Task.map (\x -> Ok <| PI.PdfOpened model.pdfUrl str x)
-                            )
-                        )
+                    let
+                        _ =
+                            Debug.log "PD.PdfUrlOpened : " str
+                    in
+                    Dialog model
 
+        -- (Task.perform PdfOpTime
+        --     (Time.now
+        --         |> Task.map (\x -> Ok <| PdI.PdfOpened model.pdfUrl (B64.encode str) x)
+        --     )
+        -- )
         PdfOpTime pdfopened ->
             case pdfopened of
                 Ok po ->
@@ -117,6 +129,9 @@ update msg model =
 
         Cancel ->
             Return model.prevModel Nothing
+
+        ServerResponse _ ->
+            Dialog model
 
 
 view : Model a -> Html Msg

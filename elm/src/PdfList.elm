@@ -12,7 +12,7 @@ import Http
 import PdfDoc as PD
 import PdfInfo exposing (PdfInfo, PdfOpened, PersistentState)
 import PdfViewer as PV
-import PublicInterface as PI
+import PublicInterface as PI exposing (mkPublicHttpReq)
 import Time
 import Util as U
 
@@ -145,7 +145,7 @@ openPdfCmd model pdfname =
             PD.openPdfUrl
                 pdfname
                 (model.location ++ "/pdfs/" ++ pdfname)
-        , mkPublicHttpReq model.location (PI.GetNotes pdfname)
+        , mkPublicHttpReq model.location (PI.GetNotes pdfname) ServerResponse
         ]
 
 
@@ -279,12 +279,3 @@ update msg model =
 
         UpdatePState pstate ->
             List (updateState model pstate)
-
-
-mkPublicHttpReq : String -> PI.SendMsg -> Cmd Msg
-mkPublicHttpReq location msg =
-    Http.post
-        { url = location ++ "/public"
-        , body = Http.jsonBody (PI.encodeSendMsg msg)
-        , expect = Http.expectJson ServerResponse PI.decodeServerResponse
-        }

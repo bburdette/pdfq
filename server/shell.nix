@@ -3,12 +3,14 @@ let
 in
   with nixpkgs;
   stdenv.mkDerivation {
-    name = "music-reader-env";
+    name = "pdfq-env";
     buildInputs = [ 
       cargo
       rustc
       sqlite
+      pkgconfig
+      openssl.dev 
       nix
       ];
+    OPENSSL_DEV=openssl.dev;
   }
-

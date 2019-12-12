@@ -1,8 +1,18 @@
 module PublicInterface exposing (..)
 
+import Http
 import Json.Decode as JD
 import Json.Encode as JE
-import PdfInfo exposing (LastState(..), PdfOpened)
+import PdfInfo exposing (GetPdf, LastState(..), PdfOpened)
+
+
+mkPublicHttpReq : String -> SendMsg -> (Result Http.Error ServerResponse -> msg) -> Cmd msg
+mkPublicHttpReq location sendmsg tomsg =
+    Http.post
+        { url = location ++ "/public"
+        , body = Http.jsonBody (encodeSendMsg sendmsg)
+        , expect = Http.expectJson tomsg decodeServerResponse
+        }
 
 
 type SendMsg
@@ -12,6 +22,7 @@ type SendMsg
     | SaveNotes PdfInfo.PdfNotes
     | SaveLastState LastState
     | SavePdf PdfOpened
+    | GetPdf GetPdf
     | GetLastState
 
 
@@ -43,6 +54,12 @@ encodeSendMsg sm =
             JE.object
                 [ ( "what", JE.string "savepdf" )
                 , ( "data", PdfInfo.encodePdfOpened po )
+                ]
+
+        GetPdf gp ->
+            JE.object
+                [ ( "what", JE.string "getpdf" )
+                , ( "data", PdfInfo.encodeGetPdf gp )
                 ]
 
         GetNotes pdfName ->

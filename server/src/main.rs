@@ -1,4 +1,5 @@
 extern crate actix_files;
+extern crate reqwest;
 extern crate actix_rt;
 extern crate actix_web;
 #[macro_use]

@@ -144,3 +144,17 @@ encodePdfOpened po =
         [ ( "pdf_name", JE.string po.pdfName )
         , ( "pdf_string", JE.string po.pdfDoc )
         ]
+
+
+type alias GetPdf =
+    { pdfName : String
+    , pdfUrl : String
+    }
+
+
+encodeGetPdf : GetPdf -> JE.Value
+encodeGetPdf gp =
+    JE.object
+        [ ( "pdf_name", JE.string gp.pdfName )
+        , ( "pdf_url", JE.string gp.pdfUrl )
+        ]
