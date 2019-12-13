@@ -112,7 +112,6 @@ pub fn pdfupret(
 }
 
 // create an entry in the db if the pdf isn't there already.
-// pub fn addpdfentry(dbfile: &Path, filename: &str) -> rusqlite::Result<PdfInfo> {
 pub fn addpdfentry(dbfile: &Path, filename: &str) -> Result<PdfInfo, Box<dyn Error>> {
   let conn = Connection::open(dbfile)?;
 
