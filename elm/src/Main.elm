@@ -124,10 +124,8 @@ update msg model =
 
                 OD.Return dm mbpdfopened ->
                     case mbpdfopened of
-                        Just pdfsave ->
-                            ( { model | page = List dm }
-                            , mkPublicHttpReq model.location (PI.SavePdf pdfsave) ServerResponse
-                            )
+                        Just pdfinfo ->
+                            ( { model | page = List (PL.addPdf dm pdfinfo) }, Cmd.none )
 
                         Nothing ->
                             ( { model | page = List dm }, Cmd.none )
@@ -204,6 +202,10 @@ update msg model =
                             ( model, Cmd.none )
 
                         PI.Noop ->
+                            ( model, Cmd.none )
+
+                        PI.NewPdfSaved pi ->
+                            -- ignoring in this context!
                             ( model, Cmd.none )
 
         ( Now mkCmd time, _ ) ->

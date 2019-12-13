@@ -75,14 +75,26 @@ updateState model state =
         }
 
 
-addPdf : Model -> PdfOpened -> Model
-addPdf model po =
+addPdf : Model -> PdfInfo -> Model
+addPdf model pi =
     sort
         { model
             | pdfs =
-                PdfInfo po.now po.pdfName Nothing
+                pi
                     :: model.pdfs
         }
+
+
+
+{- addPdf : Model -> PdfOpened -> Model
+   addPdf model po =
+       sort
+           { model
+               | pdfs =
+                   PdfInfo po.now po.pdfName Nothing
+                       :: model.pdfs
+           }
+-}
 
 
 flipDirection : SortDirection -> SortDirection
@@ -258,6 +270,15 @@ update msg model =
 
                         PI.Noop ->
                             List model
+
+                        PI.NewPdfSaved pi ->
+                            List <|
+                                sort
+                                    { model
+                                        | pdfs =
+                                            pi
+                                                :: model.pdfs
+                                    }
 
         NewClick ->
             OpenDialog model

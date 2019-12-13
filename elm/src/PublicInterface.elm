@@ -32,6 +32,7 @@ type ServerResponse
     | NotesResponse (Maybe PdfInfo.PdfNotes)
     | PdfStateSaved
     | LastStateReceived (Maybe LastState)
+    | NewPdfSaved PdfInfo.PdfInfo
     | Noop
 
 
@@ -113,7 +114,16 @@ decodeServerResponse =
                         JD.succeed PdfStateSaved
 
                     "pdfsaved" ->
-                        JD.succeed Noop
+                        JD.map NewPdfSaved
+                            (JD.field "content"
+                                PdfInfo.decodePdfInfo
+                            )
+
+                    "pdfgotten" ->
+                        JD.map NewPdfSaved
+                            (JD.field "content"
+                                PdfInfo.decodePdfInfo
+                            )
 
                     "notesresponse" ->
                         JD.map NotesResponse

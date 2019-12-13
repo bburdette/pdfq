@@ -27,7 +27,7 @@ import Util
 type Transition prevmodel
     = Dialog (Model prevmodel)
     | DialogCmd (Model prevmodel) (Cmd Msg)
-    | Return prevmodel (Maybe PdI.PdfOpened)
+    | Return prevmodel (Maybe PdI.PdfInfo)
     | Error (Model prevmodel) String
 
 
@@ -70,7 +70,7 @@ update msg model =
             DialogCmd model (FS.file [ "application/pdf" ] PdfOpened)
 
         UrlClick ->
-            -- cors won't allow it!  download on the server instead.
+            -- cors won't allow http from here!  download on the server instead.
             DialogCmd model
                 (mkPublicHttpReq model.location
                     (PI.GetPdf
@@ -106,21 +106,13 @@ update msg model =
                     Error model <| Util.httpErrorString e
 
                 Ok str ->
-                    let
-                        _ =
-                            Debug.log "PD.PdfUrlOpened : " str
-                    in
                     Dialog model
 
-        -- (Task.perform PdfOpTime
-        --     (Time.now
-        --         |> Task.map (\x -> Ok <| PdI.PdfOpened model.pdfUrl (B64.encode str) x)
-        --     )
-        -- )
         PdfOpTime pdfopened ->
             case pdfopened of
                 Ok po ->
-                    Return model.prevModel (Just po)
+                    DialogCmd model <|
+                        mkPublicHttpReq model.location (PI.SavePdf po) ServerResponse
 
                 Err e ->
                     Error model e
@@ -148,8 +140,18 @@ update msg model =
         Cancel ->
             Return model.prevModel Nothing
 
-        ServerResponse _ ->
-            Dialog model
+        ServerResponse r ->
+            case r of
+                Err e ->
+                    Error model (Util.httpErrorString e)
+
+                Ok sr ->
+                    case sr of
+                        PI.NewPdfSaved pi ->
+                            Return model.prevModel (Just pi)
+
+                        _ ->
+                            Dialog model
 
 
 view : Model a -> Html Msg
