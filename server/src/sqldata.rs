@@ -136,13 +136,15 @@ pub fn addpdfentry(dbfile: &Path, filename: &str) -> Result<PdfInfo, Box<dyn Err
   match pdfinfo_iter.next() {
     Some(pi) => {
       println!("addpdfentry, ret existing: {}", filename);
-      pi.map_err(|e|e.into())
+      pi.map_err(|e| e.into())
     }
     None => {
       println!("addpdfentry, inserting: {}", filename);
-      let nowsecs = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).map(|n| n.as_secs())?;
-      let s : i64= nowsecs.try_into()?;
-      let nowi64secs = s * 1000 ;
+      let nowsecs = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map(|n| n.as_secs())?;
+      let s: i64 = nowsecs.try_into()?;
+      let nowi64secs = s * 1000;
 
       println!("nowsecs: {}", nowi64secs);
 
@@ -152,7 +154,6 @@ pub fn addpdfentry(dbfile: &Path, filename: &str) -> Result<PdfInfo, Box<dyn Err
         params![filename, nowi64secs, ""],
       )?;
 
-      
       Ok(PdfInfo {
         filename: filename.to_string(),
         last_read: Some(nowi64secs),
