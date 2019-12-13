@@ -9,12 +9,10 @@ import Element.Border as EB
 import Element.Font as EF
 import Element.Input as EI
 import Http
-import Json.Decode as JD
-import Json.Encode as JE
 import PdfDoc as PD
-import PdfInfo exposing (PdfInfo, PersistentState)
+import PdfInfo exposing (PdfInfo, PdfOpened, PersistentState)
 import PdfViewer as PV
-import PublicInterface as PI
+import PublicInterface as PI exposing (mkPublicHttpReq)
 import Time
 import Util as U
 
@@ -23,6 +21,7 @@ type Transition
     = List Model
     | ListCmd Model (Cmd Msg)
     | Viewer (PV.Model Model)
+    | OpenDialog Model
     | Error String
 
 
@@ -34,6 +33,7 @@ type SortColumn
 type Msg
     = Noop
     | OpenClick PdfInfo
+    | NewClick
     | PDMsg PD.Msg
     | SortClick SortColumn
     | UpdatePState PersistentState
@@ -72,6 +72,16 @@ updateState model state =
                             pi
                     )
                     model.pdfs
+        }
+
+
+addPdf : Model -> PdfInfo -> Model
+addPdf model pi =
+    sort
+        { model
+            | pdfs =
+                pi
+                    :: model.pdfs
         }
 
 
@@ -135,7 +145,7 @@ openPdfCmd model pdfname =
             PD.openPdfUrl
                 pdfname
                 (model.location ++ "/pdfs/" ++ pdfname)
-        , mkPublicHttpReq model.location (PI.GetNotes pdfname)
+        , mkPublicHttpReq model.location (PI.GetNotes pdfname) ServerResponse
         ]
 
 
@@ -144,7 +154,11 @@ view model =
     E.table [ E.width E.fill, E.spacing 5 ]
         { data = model.pdfs
         , columns =
-            [ { header = E.text ""
+            [ { header =
+                    EI.button buttonStyle
+                        { label = E.text "new"
+                        , onPress = Just <| NewClick
+                        }
               , width = E.shrink
               , view =
                     \pi ->
@@ -245,6 +259,18 @@ update msg model =
                         PI.Noop ->
                             List model
 
+                        PI.NewPdfSaved pi ->
+                            List <|
+                                sort
+                                    { model
+                                        | pdfs =
+                                            pi
+                                                :: model.pdfs
+                                    }
+
+        NewClick ->
+            OpenDialog model
+
         OpenClick pi ->
             let
                 nm =
@@ -262,12 +288,3 @@ update msg model =
 
         UpdatePState pstate ->
             List (updateState model pstate)
-
-
-mkPublicHttpReq : String -> PI.SendMsg -> Cmd Msg
-mkPublicHttpReq location msg =
-    Http.post
-        { url = location ++ "/public"
-        , body = Http.jsonBody (PI.encodeSendMsg msg)
-        , expect = Http.expectJson ServerResponse PI.decodeServerResponse
-        }

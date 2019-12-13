@@ -120,3 +120,32 @@ encodePdfNotes pn =
         [ ( "pdf_name", JE.string pn.pdfName )
         , ( "notes", JE.string pn.notes )
         ]
+
+
+type alias PdfOpened =
+    { pdfName : String
+    , pdfDoc : String
+    , now : Time.Posix
+    }
+
+
+encodePdfOpened : PdfOpened -> JE.Value
+encodePdfOpened po =
+    JE.object
+        [ ( "pdf_name", JE.string po.pdfName )
+        , ( "pdf_string", JE.string po.pdfDoc )
+        ]
+
+
+type alias GetPdf =
+    { pdfName : String
+    , pdfUrl : String
+    }
+
+
+encodeGetPdf : GetPdf -> JE.Value
+encodeGetPdf gp =
+    JE.object
+        [ ( "pdf_name", JE.string gp.pdfName )
+        , ( "pdf_url", JE.string gp.pdfUrl )
+        ]

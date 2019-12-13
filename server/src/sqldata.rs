@@ -12,12 +12,11 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use time::Timespec;
 use util;
 
-
 #[derive(Serialize, Debug, Clone)]
 pub struct PdfInfo {
-  last_read: Option<i64>,
-  filename: String,
-  state: Option<serde_json::Value>,
+  pub last_read: Option<i64>,
+  pub filename: String,
+  pub state: Option<serde_json::Value>,
 }
 
 pub fn pdflist(dbfile: &Path) -> rusqlite::Result<Vec<PdfInfo>> {
@@ -112,36 +111,51 @@ pub fn pdfupret(
   Ok(out)
 }
 
-// create entries in the db for pdfs that aren't in there yet.
-pub fn pdfentries(dbfile: &Path, pdfinfo: std::vec::Vec<PdfInfo>) -> rusqlite::Result<()> {
+// create an entry in the db if the pdf isn't there already.
+pub fn addpdfentry(dbfile: &Path, filename: &str) -> Result<PdfInfo, Box<dyn Error>> {
   let conn = Connection::open(dbfile)?;
 
-  // get a set of the names in the db already.
-  let mut pstmt = conn.prepare("SELECT name FROM pdfinfo")?;
-  let pdfname_iter = pstmt.query_map(params![], |row| row.get(0))?;
+  let mut pstmt =
+    conn.prepare("SELECT name, last_read, persistentState FROM pdfinfo WHERE name = ?1")?;
 
-  let mut nameset: BTreeSet<String> = BTreeSet::new();
-  for pdfname in pdfname_iter {
-    match pdfname {
-      Ok(name) => nameset.insert(name),
-      _ => false,
-    };
-  }
+  let mut pdfinfo_iter = pstmt.query_map(params![filename], |row| {
+    let ss: Option<String> = row.get(2)?;
+    // TODO: we don't get the json parse error if there is one!
+    let state: Option<serde_json::Value> = ss.and_then(|s| serde_json::from_str(s.as_str()).ok());
 
-  println!("names: {:?}", nameset);
+    Ok(PdfInfo {
+      filename: row.get(0)?,
+      last_read: row.get(1)?,
+      state: state,
+    })
+  })?;
 
-  for pi in pdfinfo {
-    if !nameset.contains(&pi.filename) {
-      println!("adding pdf: {}", pi.filename);
+  match pdfinfo_iter.next() {
+    Some(pi) => {
+      println!("addpdfentry, ret existing: {}", filename);
+      pi.map_err(|e| e.into())
+    }
+    None => {
+      println!("addpdfentry, inserting: {}", filename);
+      let nowsecs = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map(|n| n.as_secs())?;
+      let s: i64 = nowsecs.try_into()?;
+      let nowi64secs = s * 1000;
+
       conn.execute(
         "INSERT INTO pdfinfo (name, last_read, persistentState, notes)
                       VALUES (?1, ?2, ?3, '')",
-        params![pi.filename, pi.last_read, ""],
+        params![filename, nowi64secs, ""],
       )?;
+
+      Ok(PdfInfo {
+        filename: filename.to_string(),
+        last_read: Some(nowi64secs),
+        state: None,
+      })
     }
   }
-
-  Ok(())
 }
 
 pub fn saveUiState(dbfile: &Path, state: &str) -> rusqlite::Result<()> {

@@ -1,8 +1,18 @@
 module PublicInterface exposing (..)
 
+import Http
 import Json.Decode as JD
 import Json.Encode as JE
-import PdfInfo exposing (LastState(..))
+import PdfInfo exposing (GetPdf, LastState(..), PdfOpened)
+
+
+mkPublicHttpReq : String -> SendMsg -> (Result Http.Error ServerResponse -> msg) -> Cmd msg
+mkPublicHttpReq location sendmsg tomsg =
+    Http.post
+        { url = location ++ "/public"
+        , body = Http.jsonBody (encodeSendMsg sendmsg)
+        , expect = Http.expectJson tomsg decodeServerResponse
+        }
 
 
 type SendMsg
@@ -11,6 +21,8 @@ type SendMsg
     | GetNotes String
     | SaveNotes PdfInfo.PdfNotes
     | SaveLastState LastState
+    | SavePdf PdfOpened
+    | GetPdf GetPdf
     | GetLastState
 
 
@@ -20,6 +32,7 @@ type ServerResponse
     | NotesResponse (Maybe PdfInfo.PdfNotes)
     | PdfStateSaved
     | LastStateReceived (Maybe LastState)
+    | NewPdfSaved PdfInfo.PdfInfo
     | Noop
 
 
@@ -36,6 +49,18 @@ encodeSendMsg sm =
             JE.object
                 [ ( "what", JE.string "savepdfstate" )
                 , ( "data", state )
+                ]
+
+        SavePdf po ->
+            JE.object
+                [ ( "what", JE.string "savepdf" )
+                , ( "data", PdfInfo.encodePdfOpened po )
+                ]
+
+        GetPdf gp ->
+            JE.object
+                [ ( "what", JE.string "getpdf" )
+                , ( "data", PdfInfo.encodeGetPdf gp )
                 ]
 
         GetNotes pdfName ->
@@ -87,6 +112,18 @@ decodeServerResponse =
 
                     "pdfstatesaved" ->
                         JD.succeed PdfStateSaved
+
+                    "pdfsaved" ->
+                        JD.map NewPdfSaved
+                            (JD.field "content"
+                                PdfInfo.decodePdfInfo
+                            )
+
+                    "pdfgotten" ->
+                        JD.map NewPdfSaved
+                            (JD.field "content"
+                                PdfInfo.decodePdfInfo
+                            )
 
                     "notesresponse" ->
                         JD.map NotesResponse

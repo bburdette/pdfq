@@ -1,4 +1,5 @@
 extern crate serde_json;
+use base64;
 use serde_json::Value;
 use simple_error;
 use sqldata;
@@ -6,7 +7,7 @@ use sqldata::PdfInfo;
 use std::convert::TryInto;
 use std::error::Error;
 use std::fs::File;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use util;
@@ -41,6 +42,18 @@ struct PdfNotes {
 struct PersistentState {
   pdf_name: String,
   last_read: i64,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+struct SavePdf {
+  pdf_name: String,
+  pdf_string: String, // base64
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+struct GetPdf {
+  pdf_name: String,
+  pdf_url: String,
 }
 
 #[derive(Serialize, Debug)]
@@ -89,6 +102,50 @@ pub fn process_public_json(
       Ok(Some(ServerResponse {
         what: "pdfstatesaved".to_string(),
         content: serde_json::Value::Null,
+      }))
+    }
+    "savepdf" => {
+      println!("savepdf");
+      // save the pdf to a file.
+      let json = msg
+        .data
+        .ok_or(simple_error::SimpleError::new("pdf data not found!"))?;
+      let ps: SavePdf = serde_json::from_value(json.clone())?;
+      let bytes = base64::decode(ps.pdf_string.as_str())?;
+      let path = &Path::new(pdfdir).join(ps.pdf_name.as_str());
+      let mut inf = File::create(path)?;
+      inf.write(&bytes)?;
+      println!("saved PDF: {}", ps.pdf_name);
+
+      let pi = sqldata::addpdfentry(pdbp, ps.pdf_name.as_str())?;
+
+      Ok(Some(ServerResponse {
+        what: "pdfsaved".to_string(),
+        content: serde_json::to_value(pi)?,
+      }))
+    }
+    "getpdf" => {
+      println!("getpdf");
+      // save the pdf to a file.
+      let json = msg
+        .data
+        .ok_or(simple_error::SimpleError::new("getpdf data not found!"))?;
+      let gp: GetPdf = serde_json::from_value(json.clone())?;
+      {
+        let mut res = reqwest::get(gp.pdf_url.as_str())?;
+        let mut body = String::new();
+        let path = &Path::new(pdfdir).join(gp.pdf_name.as_str());
+        let mut inf = File::create(path)?;
+        res.copy_to(&mut inf)?;
+      }
+
+      let pi = sqldata::addpdfentry(pdbp, gp.pdf_name.as_str())?;
+
+      println!("saved url PDF: {}", pi.filename);
+
+      Ok(Some(ServerResponse {
+        what: "pdfgotten".to_string(),
+        content: serde_json::to_value(pi)?,
       }))
     }
     "getnotes" => {

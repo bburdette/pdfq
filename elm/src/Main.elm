@@ -8,20 +8,22 @@ import ErrorView as EV
 import Html exposing (Html)
 import Http
 import Json.Decode as JD
+import OpenDialog as OD
 import PdfDoc as PD
 import PdfInfo exposing (LastState(..), PdfNotes)
 import PdfList as PL
-import PdfViewer
+import PdfViewer as PV
 import Process
-import PublicInterface as PI
+import PublicInterface as PI exposing (mkPublicHttpReq)
 import Task
 import Time
 import Util
 
 
 type Page
-    = Viewer (PdfViewer.Model PL.Model)
+    = Viewer (PV.Model PL.Model)
     | List PL.Model
+    | OpenDialog (OD.Model PL.Model)
     | Loading (Maybe LastState)
     | ErrorView (EV.Model Page)
 
@@ -35,11 +37,12 @@ type alias Model =
 
 
 type Msg
-    = ViewerMsg PdfViewer.Msg
+    = ViewerMsg PV.Msg
     | ListMsg PL.Msg
+    | OpenDialogMsg OD.Msg
     | PDMsg PD.Msg
     | EVMsg EV.Msg
-    | Naiow (Time.Posix -> Cmd Msg) Time.Posix
+    | Now (Time.Posix -> Cmd Msg) Time.Posix
     | ServerResponse (Result Http.Error PI.ServerResponse)
     | SaveNote String Int
     | OnKeyDown String
@@ -54,18 +57,18 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case ( msg, model.page ) of
         ( ViewerMsg vm, Viewer mod ) ->
-            case PdfViewer.update vm mod of
-                PdfViewer.Viewer vmod ->
+            case PV.update vm mod of
+                PV.Viewer vmod ->
                     ( { model | page = Viewer vmod }, Cmd.none )
 
-                PdfViewer.ViewerPersist vmod mkpersist ->
+                PV.ViewerPersist vmod mkpersist ->
                     ( { model | page = Viewer vmod }
                     , Task.perform
-                        (Naiow (\time -> mkPublicHttpReq model.location (PI.SavePdfState (PdfInfo.encodePersistentState (mkpersist time)))))
+                        (Now (\time -> mkPublicHttpReq model.location (PI.SavePdfState (PdfInfo.encodePersistentState (mkpersist time))) ServerResponse))
                         Time.now
                     )
 
-                PdfViewer.ViewerSaveNotes vmod notes ->
+                PV.ViewerSaveNotes vmod notes ->
                     ( { model
                         | page = Viewer vmod
                         , saveNotes = Dict.insert notes.pdfName ( model.saveNotesCount, notes ) model.saveNotes
@@ -77,7 +80,7 @@ update msg model =
                             (\_ -> SaveNote notes.pdfName model.saveNotesCount)
                     )
 
-                PdfViewer.List listmodel mkpstate ->
+                PV.List listmodel mkpstate ->
                     addLastStateCmd
                         ( { model | page = List listmodel }
                         , Time.now
@@ -92,12 +95,43 @@ update msg model =
                 PL.ListCmd nmod lcmd ->
                     ( { model | page = List nmod }, Cmd.map ListMsg lcmd )
 
+                PL.OpenDialog nlm ->
+                    ( { model
+                        | page =
+                            OpenDialog
+                                (OD.init model.location
+                                    nlm
+                                    (\m -> E.map (\_ -> ()) (PL.view m))
+                                )
+                      }
+                    , Cmd.none
+                    )
+
                 PL.Viewer vmod ->
                     addLastStateCmd
                         ( { model | page = Viewer vmod }, Cmd.none )
 
                 PL.Error e ->
                     ( { model | page = ErrorView <| EV.init e (List mod) }, Cmd.none )
+
+        ( OpenDialogMsg odm, OpenDialog odmod ) ->
+            case OD.update odm odmod of
+                OD.Dialog dm ->
+                    ( { model | page = OpenDialog dm }, Cmd.none )
+
+                OD.DialogCmd dm cmd ->
+                    ( { model | page = OpenDialog dm }, Cmd.map OpenDialogMsg cmd )
+
+                OD.Return dm mbpdfopened ->
+                    case mbpdfopened of
+                        Just pdfinfo ->
+                            ( { model | page = List (PL.addPdf dm pdfinfo) }, Cmd.none )
+
+                        Nothing ->
+                            ( { model | page = List dm }, Cmd.none )
+
+                OD.Error dm errstring ->
+                    ( { model | page = ErrorView <| EV.init errstring (OpenDialog dm) }, Cmd.none )
 
         ( EVMsg evm, ErrorView evmod ) ->
             case EV.update evm evmod of
@@ -155,7 +189,7 @@ update msg model =
                             case page of
                                 Loading _ ->
                                     ( { model | page = Loading ls }
-                                    , mkPublicHttpReq model.location PI.GetFileList
+                                    , mkPublicHttpReq model.location PI.GetFileList ServerResponse
                                     )
 
                                 _ ->
@@ -170,7 +204,11 @@ update msg model =
                         PI.Noop ->
                             ( model, Cmd.none )
 
-        ( Naiow mkCmd time, _ ) ->
+                        PI.NewPdfSaved pi ->
+                            -- ignoring in this context!
+                            ( model, Cmd.none )
+
+        ( Now mkCmd time, _ ) ->
             ( model, mkCmd time )
 
         ( OnKeyDown ks, _ ) ->
@@ -178,14 +216,14 @@ update msg model =
             --     _ =
             --         Debug.log "key: " ks
             -- in
-            update (ViewerMsg (PdfViewer.OnKeyDown ks)) model
+            update (ViewerMsg (PV.OnKeyDown ks)) model
 
         ( SaveNote pdfname count, _ ) ->
             case Dict.get pdfname model.saveNotes of
                 Just ( dictcount, pdfnotes ) ->
                     if dictcount == count then
                         -- timer expired without additional user input.  send the save msg.
-                        ( model, mkPublicHttpReq model.location (PI.SaveNotes pdfnotes) )
+                        ( model, mkPublicHttpReq model.location (PI.SaveNotes pdfnotes) ServerResponse )
 
                     else
                         -- there's a newer save reminder out there.  wait for that one instead.
@@ -211,7 +249,11 @@ view model =
 
         Viewer mod ->
             Html.map ViewerMsg <|
-                PdfViewer.view mod
+                PV.view mod
+
+        OpenDialog mod ->
+            Html.map OpenDialogMsg <|
+                OD.view mod
 
         Loading _ ->
             E.layout
@@ -231,15 +273,6 @@ type alias Flags =
     { location : String }
 
 
-mkPublicHttpReq : String -> PI.SendMsg -> Cmd Msg
-mkPublicHttpReq location msg =
-    Http.post
-        { url = location ++ "/public"
-        , body = Http.jsonBody (PI.encodeSendMsg msg)
-        , expect = Http.expectJson ServerResponse PI.decodeServerResponse
-        }
-
-
 init : Flags -> ( Model, Cmd Msg )
 init flags =
     ( { location = flags.location
@@ -247,7 +280,7 @@ init flags =
       , saveNotes = Dict.empty
       , saveNotesCount = 0
       }
-    , mkPublicHttpReq flags.location PI.GetLastState
+    , mkPublicHttpReq flags.location PI.GetLastState ServerResponse
     )
 
 
@@ -289,7 +322,7 @@ addLastStateCmd ( model, cmd ) =
         , toLastState model
             |> Maybe.map
                 (\ls ->
-                    mkPublicHttpReq model.location (PI.SaveLastState ls)
+                    mkPublicHttpReq model.location (PI.SaveLastState ls) ServerResponse
                 )
             |> Maybe.withDefault Cmd.none
         ]

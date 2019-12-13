@@ -1,6 +1,7 @@
 extern crate actix_files;
 extern crate actix_rt;
 extern crate actix_web;
+extern crate reqwest;
 #[macro_use]
 extern crate simple_error;
 extern crate env_logger;
@@ -16,6 +17,7 @@ extern crate log;
 extern crate rusqlite;
 #[macro_use]
 extern crate serde_derive;
+extern crate base64;
 
 mod process_json;
 mod sqldata;
@@ -24,8 +26,10 @@ mod util;
 use actix_files::NamedFile;
 use actix_web::http::{Method, StatusCode};
 use actix_web::middleware::Logger;
+use actix_web::web::JsonConfig;
 use actix_web::{
-  http, middleware, web, App, HttpMessage, HttpRequest, HttpResponse, HttpServer, Responder, Result,
+  http, middleware, web, App, FromRequest, HttpMessage, HttpRequest, HttpResponse, HttpServer,
+  Responder, Result,
 };
 use futures::future::Future;
 use json::JsonValue;
@@ -205,7 +209,15 @@ fn err_main() -> Result<(), std::io::Error> {
       // enable logger
       .wrap(middleware::Logger::default())
       .route("/", web::get().to(mainpage))
-      .route("/public", web::post().to(public))
+      .service(
+        web::resource("/public")
+          .data(
+            // change json extractor configuration
+            // TODO: break incoming pdfs into parts to use smaller buffer.
+            web::Json::<PublicMessage>::configure(|cfg| cfg.limit(4096000)),
+          )
+          .route(web::post().to(public)),
+      )
       .service(actix_files::Files::new("/pdfs", c.pdfdir.as_str()))
       .service(actix_files::Files::new("/", "static/"))
   })
