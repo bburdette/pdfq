@@ -75,6 +75,7 @@ pub fn process_public_json(
 
       // pdfs in the db.
       let sqlpdfs = sqldata::pdflist(pdbp)?;
+      println!("sqlpdfs: {:?}", sqlpdfs);
       // pdfs in the dir.
       let filepdfs = sqldata::pdfscan(&pdfdir)?;
 
@@ -117,9 +118,12 @@ pub fn process_public_json(
       let mut inf = File::create(path)?;
       inf.write(&bytes)?;
       println!("after writestring {}", ps.pdf_name);
+
+      let pi = sqldata::addpdfentry(pdbp, ps.pdf_name.as_str())?;
+
       Ok(Some(ServerResponse {
         what: "pdfsaved".to_string(),
-        content: serde_json::Value::Null,
+        content: serde_json::to_value(pi)?,
       }))
     }
     "getpdf" => {
@@ -136,9 +140,12 @@ pub fn process_public_json(
         let mut inf = File::create(path)?;
         res.copy_to(&mut inf)?;
       }
+
+      let pi = sqldata::addpdfentry(pdbp, gp.pdf_name.as_str())?;
+
       Ok(Some(ServerResponse {
         what: "pdfgotten".to_string(),
-        content: serde_json::Value::Null,
+        content: serde_json::to_value(pi)?,
       }))
     }
     "getnotes" => {

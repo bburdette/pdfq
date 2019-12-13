@@ -20,6 +20,7 @@ import PdfInfo as PdI exposing (PdfNotes, PersistentState)
 import PublicInterface as PI exposing (mkPublicHttpReq)
 import Task
 import Time
+import Url
 import Util
 
 
@@ -34,6 +35,7 @@ type Msg
     = FileClick
     | UrlClick
     | UrlChanged String
+    | NameChanged String
     | PdfOpened File.File
     | PdfUrlOpened (Result Http.Error String)
     | PdfOpTime (Result String PdI.PdfOpened)
@@ -44,6 +46,7 @@ type Msg
 
 type alias Model prevmodel =
     { pdfUrl : String
+    , pdfName : String
     , prevModel : prevmodel
     , prevRender : prevmodel -> Element ()
     , location : String
@@ -53,6 +56,7 @@ type alias Model prevmodel =
 init : String -> a -> (a -> Element ()) -> Model a
 init location prevmod render =
     { pdfUrl = ""
+    , pdfName = ""
     , prevModel = prevmod
     , prevRender = render
     , location = location
@@ -70,7 +74,7 @@ update msg model =
             DialogCmd model
                 (mkPublicHttpReq model.location
                     (PI.GetPdf
-                        { pdfName = "meh"
+                        { pdfName = model.pdfName
                         , pdfUrl = model.pdfUrl
                         }
                     )
@@ -121,8 +125,22 @@ update msg model =
                 Err e ->
                     Error model e
 
-        UrlChanged url ->
-            Dialog { model | pdfUrl = url }
+        UrlChanged urlstr ->
+            let
+                name =
+                    Url.fromString urlstr
+                        |> Maybe.andThen
+                            (\url ->
+                                String.split "/" url.path
+                                    |> List.head
+                                    << List.reverse
+                            )
+                        |> Maybe.withDefault model.pdfName
+            in
+            Dialog { model | pdfUrl = urlstr, pdfName = name }
+
+        NameChanged name ->
+            Dialog { model | pdfName = name }
 
         Noop ->
             Dialog model
@@ -189,5 +207,17 @@ dialogView model =
                         EI.button buttonStyle { label = E.text "open url:", onPress = Just UrlClick }
                 }
             ]
+        , if model.pdfUrl == "" then
+            E.none
+
+          else
+            EI.text
+                []
+                { onChange = NameChanged
+                , text = model.pdfName
+                , placeholder = Nothing
+                , label =
+                    EI.labelLeft [ E.centerY ] <| E.text "name"
+                }
         , EI.button buttonStyle { label = E.text "open file", onPress = Just FileClick }
         ]
