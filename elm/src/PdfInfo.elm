@@ -129,15 +129,6 @@ type alias PdfOpened =
     }
 
 
-
-{- decodePdfOpened : JD.Decoder PdfOpened
-   decodePdfOpened =
-       JD.map2 PdfOpened
-           (JD.field "pdf_name" JD.string)
-           (JD.field "pdf_string" JD.string)
--}
-
-
 encodePdfOpened : PdfOpened -> JE.Value
 encodePdfOpened po =
     JE.object

@@ -14,9 +14,9 @@ use util;
 
 #[derive(Serialize, Debug, Clone)]
 pub struct PdfInfo {
-  last_read: Option<i64>,
-  filename: String,
-  state: Option<serde_json::Value>,
+  pub last_read: Option<i64>,
+  pub filename: String,
+  pub state: Option<serde_json::Value>,
 }
 
 pub fn pdflist(dbfile: &Path) -> rusqlite::Result<Vec<PdfInfo>> {
@@ -91,8 +91,6 @@ pub fn pdfupret(
 
   let mut out = Vec::new();
 
-  println!("dbmap: {:?}", dbmap);
-
   for pi in filepdfs {
     match dbmap.get(&pi.filename) {
       Some(dbpi) => {
@@ -145,8 +143,6 @@ pub fn addpdfentry(dbfile: &Path, filename: &str) -> Result<PdfInfo, Box<dyn Err
         .map(|n| n.as_secs())?;
       let s: i64 = nowsecs.try_into()?;
       let nowi64secs = s * 1000;
-
-      println!("nowsecs: {}", nowi64secs);
 
       conn.execute(
         "INSERT INTO pdfinfo (name, last_read, persistentState, notes)

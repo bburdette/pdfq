@@ -85,18 +85,6 @@ addPdf model pi =
         }
 
 
-
-{- addPdf : Model -> PdfOpened -> Model
-   addPdf model po =
-       sort
-           { model
-               | pdfs =
-                   PdfInfo po.now po.pdfName Nothing
-                       :: model.pdfs
-           }
--}
-
-
 flipDirection : SortDirection -> SortDirection
 flipDirection dir =
     case dir of

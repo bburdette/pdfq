@@ -75,7 +75,6 @@ pub fn process_public_json(
 
       // pdfs in the db.
       let sqlpdfs = sqldata::pdflist(pdbp)?;
-      println!("sqlpdfs: {:?}", sqlpdfs);
       // pdfs in the dir.
       let filepdfs = sqldata::pdfscan(&pdfdir)?;
 
@@ -112,12 +111,11 @@ pub fn process_public_json(
         .data
         .ok_or(simple_error::SimpleError::new("pdf data not found!"))?;
       let ps: SavePdf = serde_json::from_value(json.clone())?;
-      println!("before writestring {}", ps.pdf_name);
       let bytes = base64::decode(ps.pdf_string.as_str())?;
       let path = &Path::new(pdfdir).join(ps.pdf_name.as_str());
       let mut inf = File::create(path)?;
       inf.write(&bytes)?;
-      println!("after writestring {}", ps.pdf_name);
+      println!("saved PDF: {}", ps.pdf_name);
 
       let pi = sqldata::addpdfentry(pdbp, ps.pdf_name.as_str())?;
 
@@ -142,6 +140,8 @@ pub fn process_public_json(
       }
 
       let pi = sqldata::addpdfentry(pdbp, gp.pdf_name.as_str())?;
+
+      println!("saved url PDF: {}", pi.filename);
 
       Ok(Some(ServerResponse {
         what: "pdfgotten".to_string(),

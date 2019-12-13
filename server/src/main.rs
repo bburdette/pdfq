@@ -213,11 +213,11 @@ fn err_main() -> Result<(), std::io::Error> {
         web::resource("/public")
           .data(
             // change json extractor configuration
+            // TODO: break incoming pdfs into parts to use smaller buffer.
             web::Json::<PublicMessage>::configure(|cfg| cfg.limit(4096000)),
           )
           .route(web::post().to(public)),
       )
-      // .route("/public", web::post().to(public))
       .service(actix_files::Files::new("/pdfs", c.pdfdir.as_str()))
       .service(actix_files::Files::new("/", "static/"))
   })
