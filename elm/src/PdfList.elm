@@ -28,6 +28,7 @@ type Transition
 type SortColumn
     = Date
     | Name
+    | Progress
 
 
 type Msg
@@ -97,6 +98,16 @@ flipDirection dir =
 
 sort : Model -> Model
 sort model =
+    let
+        progress =
+            \pi ->
+                pi.state
+                    |> Maybe.map
+                        (\state ->
+                            toFloat state.page / toFloat state.pageCount
+                        )
+                    |> Maybe.withDefault 0
+    in
     { model
         | pdfs =
             case ( model.sortColumn, model.sortDirection ) of
@@ -113,6 +124,13 @@ sort model =
 
                 ( Name, Up ) ->
                     List.sortBy .fileName model.pdfs
+
+                ( Progress, Down ) ->
+                    List.sortBy progress model.pdfs
+                        |> List.reverse
+
+                ( Progress, Up ) ->
+                    List.sortBy progress model.pdfs
     }
 
 
@@ -190,6 +208,37 @@ view model =
                         E.el [ E.centerY ] <|
                             E.text
                                 pi.fileName
+              }
+            , { header =
+                    EI.button buttonStyle
+                        { label = E.text "progress"
+                        , onPress = Just <| SortClick Progress
+                        }
+              , width = E.px 100
+              , view =
+                    \pi ->
+                        case pi.state of
+                            Just state ->
+                                E.row
+                                    [ E.width <| E.px 100
+                                    , EB.color <| E.rgb 0 0 0.7
+                                    , EB.width 1
+                                    ]
+                                    [ E.row
+                                        [ E.width <|
+                                            E.px <|
+                                                round <|
+                                                    ((toFloat state.page * 100)
+                                                        / toFloat state.pageCount
+                                                    )
+                                        , EBg.color <| E.rgb 0 0 0.7
+                                        ]
+                                        [ E.text "" ]
+                                    , E.row [ E.width E.fill ] []
+                                    ]
+
+                            Nothing ->
+                                E.none
               }
             ]
         }
