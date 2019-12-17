@@ -15,6 +15,7 @@ import PdfList as PL
 import PdfViewer as PV
 import Process
 import PublicInterface as PI exposing (mkPublicHttpReq)
+import Sizer as S
 import Task
 import Time
 import Util

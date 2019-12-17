@@ -1,12 +1,10 @@
 module OpenDialog exposing (..)
 
 import Common exposing (buttonStyle)
-import Dict
 import Element as E exposing (Element)
 import Element.Background as EBg
 import Element.Border as EB
 import Element.Events as EE
-import Element.Font as EF
 import Element.Input as EI
 import File
 import File.Select as FS
@@ -14,8 +12,6 @@ import Html exposing (Html)
 import Html.Events as HE
 import Http
 import Json.Decode as JD
-import PdfDoc as PD
-import PdfElement
 import PdfInfo as PdI exposing (PdfNotes, PersistentState)
 import PublicInterface as PI exposing (mkPublicHttpReq)
 import Task
