@@ -20,7 +20,7 @@ type Transition listmodel
     | ViewerPersist (Model listmodel) (Time.Posix -> PersistentState)
     | ViewerSaveNotes (Model listmodel) PdfNotes
     | List listmodel (Time.Posix -> PersistentState)
-    | Sizer (Model listmodel)
+    | Sizer (Model listmodel) Int
 
 
 type Msg
@@ -45,6 +45,7 @@ type alias Model listmodel =
     , listModel : listmodel
     , notes : PdfNotes
     , textFocus : Bool
+    , notesWidth : Int
     }
 
 
@@ -88,6 +89,7 @@ init mbps mbpdfn opdf listmod =
     , listModel = listmod
     , notes = pdfn
     , textFocus = False
+    , notesWidth = 400
     }
 
 
@@ -115,6 +117,11 @@ zoom mult model =
             | zoom = z
             , zoomText = String.fromFloat z
         }
+
+
+setNotesWidth : Int -> Model a -> Model a
+setNotesWidth w model =
+    { model | notesWidth = w }
 
 
 update : Msg -> Model a -> Transition a
@@ -190,7 +197,7 @@ update msg model =
             Viewer { model | textFocus = focus }
 
         StartSizing ->
-            Sizer model
+            Sizer model model.notesWidth
 
 
 topBar : Model a -> Element Msg
@@ -237,26 +244,36 @@ topBar model =
 notePanel : Model a -> Element Msg
 notePanel model =
     E.column
-        [ E.width <| E.px 400
+        [ E.width <| E.px model.notesWidth
         , EBg.color <| E.rgb 0.4 0.4 0.4
         , E.spacing 10
-        , E.padding 10
         , E.alignTop
         , E.height E.fill
         ]
-        [ EI.button buttonStyle { label = E.text "size", onPress = Just StartSizing }
-        , Util.scrollbarYEl [] <|
-            EI.multiline
-                [ E.alignTop
-                , EE.onFocus <| TextFocus True
-                , EE.onLoseFocus <| TextFocus False
+        [ E.row [ E.width E.fill, E.height E.fill, E.spacing 5 ]
+            [ Util.scrollbarYEl
+                [ E.padding 10
                 ]
-                { onChange = NoteChanged
-                , text = model.notes.notes
-                , placeholder = Nothing
-                , label = EI.labelHidden "notes"
-                , spellcheck = True
-                }
+              <|
+                EI.multiline
+                    [ E.alignTop
+                    , EE.onFocus <| TextFocus True
+                    , EE.onLoseFocus <| TextFocus False
+                    ]
+                    { onChange = NoteChanged
+                    , text = model.notes.notes
+                    , placeholder = Nothing
+                    , label = EI.labelHidden "notes"
+                    , spellcheck = True
+                    }
+            , E.column
+                [ E.width <| E.px 5
+                , E.height E.fill
+                , EBg.color <| E.rgb 0.75 0.75 0.75
+                , EE.onMouseDown StartSizing
+                ]
+                []
+            ]
         ]
 
 

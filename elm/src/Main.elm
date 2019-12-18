@@ -93,13 +93,13 @@ update msg model =
                             |> Task.perform (\time -> ListMsg (PL.UpdatePState (mkpstate time)))
                         )
 
-                PV.Sizer vmod ->
+                PV.Sizer vmod w ->
                     ( { model
                         | page =
                             Sizer
                                 (S.init model.width
                                     model.height
-                                    0
+                                    w
                                     (Viewer vmod)
                                     (\md ->
                                         case md of
@@ -184,7 +184,16 @@ update msg model =
                     ( { model | page = Sizer nsm }, Cmd.none )
 
                 S.Return pm i ->
-                    ( { model | page = pm }, Cmd.none )
+                    let
+                        npm =
+                            case pm of
+                                Viewer vm ->
+                                    Viewer <| PV.setNotesWidth i vm
+
+                                _ ->
+                                    pm
+                    in
+                    ( { model | page = npm }, Cmd.none )
 
                 S.Error nsmod errstring ->
                     ( { model | page = ErrorView <| EV.init errstring (Sizer nsmod) }, Cmd.none )
