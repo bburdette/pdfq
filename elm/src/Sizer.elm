@@ -2,12 +2,11 @@ module Sizer exposing (..)
 
 import Element as E exposing (Element)
 import Element.Background as EBg
-import Element.Border as EB
 import Element.Events as EE
 import Html exposing (Html)
 import Html.Attributes as HA
 import Json.Decode as JD
-import Svg exposing (Attribute, Svg, g, rect, svg)
+import Svg exposing (Svg, g, rect, svg)
 import Svg.Attributes as SA
 import Svg.Events exposing (onMouseUp)
 import VirtualDom as VD

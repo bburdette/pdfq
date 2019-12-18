@@ -2,9 +2,6 @@ module ErrorView exposing (..)
 
 import Common as C
 import Element as E exposing (Element)
-import Element.Background as EBg
-import Element.Border as EB
-import Element.Font as EF
 import Element.Input as EI
 
 

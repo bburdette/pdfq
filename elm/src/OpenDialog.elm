@@ -12,7 +12,7 @@ import Html exposing (Html)
 import Html.Events as HE
 import Http
 import Json.Decode as JD
-import PdfInfo as PdI exposing (PdfNotes, PersistentState)
+import PdfInfo as PdI
 import PublicInterface as PI exposing (mkPublicHttpReq)
 import Task
 import Time
