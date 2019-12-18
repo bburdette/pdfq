@@ -93,7 +93,7 @@ init mbps mbpdfn opdf listmod =
     , listModel = listmod
     , notes = pdfn
     , textFocus = False
-    , notesWidth = nw
+    , notesWidth = max nw 25
     }
 
 
@@ -125,7 +125,7 @@ zoom mult model =
 
 setNotesWidth : Int -> Model a -> Transition a
 setNotesWidth w model =
-    persist { model | notesWidth = w }
+    persist { model | notesWidth = max w 25 }
 
 
 update : Msg -> Model a -> Transition a
