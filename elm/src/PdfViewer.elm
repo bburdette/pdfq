@@ -56,6 +56,7 @@ toPersistentState model time =
     , page = model.page
     , pageCount = model.pageCount
     , lastRead = time
+    , notesWidth = model.notesWidth
     }
 
 
@@ -73,6 +74,9 @@ init mbps mbpdfn opdf listmod =
         page =
             mbps |> Maybe.map .page |> Maybe.withDefault 1
 
+        nw =
+            mbps |> Maybe.map .notesWidth |> Maybe.withDefault 400
+
         pdfn =
             mbpdfn
                 |> Maybe.withDefault
@@ -89,7 +93,7 @@ init mbps mbpdfn opdf listmod =
     , listModel = listmod
     , notes = pdfn
     , textFocus = False
-    , notesWidth = 400
+    , notesWidth = nw
     }
 
 
@@ -119,9 +123,9 @@ zoom mult model =
         }
 
 
-setNotesWidth : Int -> Model a -> Model a
+setNotesWidth : Int -> Model a -> Transition a
 setNotesWidth w model =
-    { model | notesWidth = w }
+    persist { model | notesWidth = w }
 
 
 update : Msg -> Model a -> Transition a

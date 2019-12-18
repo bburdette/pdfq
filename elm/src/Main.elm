@@ -59,61 +59,66 @@ decodeKey =
     JD.field "key" JD.string
 
 
+viewerTrans : Model -> PV.Transition PL.Model -> ( Model, Cmd Msg )
+viewerTrans model vt =
+    case vt of
+        PV.Viewer vmod ->
+            ( { model | page = Viewer vmod }, Cmd.none )
+
+        PV.ViewerPersist vmod mkpersist ->
+            ( { model | page = Viewer vmod }
+            , Task.perform
+                (Now (\time -> mkPublicHttpReq model.location (PI.SavePdfState (PdfInfo.encodePersistentState (mkpersist time))) ServerResponse))
+                Time.now
+            )
+
+        PV.ViewerSaveNotes vmod notes ->
+            ( { model
+                | page = Viewer vmod
+                , saveNotes = Dict.insert notes.pdfName ( model.saveNotesCount, notes ) model.saveNotes
+                , saveNotesCount = model.saveNotesCount + 1
+              }
+            , -- N second delay before saving.
+              Process.sleep 5000
+                |> Task.perform
+                    (\_ -> SaveNote notes.pdfName model.saveNotesCount)
+            )
+
+        PV.List listmodel mkpstate ->
+            addLastStateCmd
+                ( { model | page = List listmodel }
+                , Time.now
+                    |> Task.perform (\time -> ListMsg (PL.UpdatePState (mkpstate time)))
+                )
+
+        PV.Sizer vmod w ->
+            ( { model
+                | page =
+                    Sizer
+                        (S.init model.width
+                            model.height
+                            w
+                            (Viewer vmod)
+                            (\md ->
+                                case md of
+                                    Viewer vmd ->
+                                        PV.eview vmd
+                                            |> E.map (\_ -> ())
+
+                                    _ ->
+                                        E.none
+                            )
+                        )
+              }
+            , Cmd.none
+            )
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case ( msg, model.page ) of
         ( ViewerMsg vm, Viewer mod ) ->
-            case PV.update vm mod of
-                PV.Viewer vmod ->
-                    ( { model | page = Viewer vmod }, Cmd.none )
-
-                PV.ViewerPersist vmod mkpersist ->
-                    ( { model | page = Viewer vmod }
-                    , Task.perform
-                        (Now (\time -> mkPublicHttpReq model.location (PI.SavePdfState (PdfInfo.encodePersistentState (mkpersist time))) ServerResponse))
-                        Time.now
-                    )
-
-                PV.ViewerSaveNotes vmod notes ->
-                    ( { model
-                        | page = Viewer vmod
-                        , saveNotes = Dict.insert notes.pdfName ( model.saveNotesCount, notes ) model.saveNotes
-                        , saveNotesCount = model.saveNotesCount + 1
-                      }
-                    , -- N second delay before saving.
-                      Process.sleep 5000
-                        |> Task.perform
-                            (\_ -> SaveNote notes.pdfName model.saveNotesCount)
-                    )
-
-                PV.List listmodel mkpstate ->
-                    addLastStateCmd
-                        ( { model | page = List listmodel }
-                        , Time.now
-                            |> Task.perform (\time -> ListMsg (PL.UpdatePState (mkpstate time)))
-                        )
-
-                PV.Sizer vmod w ->
-                    ( { model
-                        | page =
-                            Sizer
-                                (S.init model.width
-                                    model.height
-                                    w
-                                    (Viewer vmod)
-                                    (\md ->
-                                        case md of
-                                            Viewer vmd ->
-                                                PV.eview vmd
-                                                    |> E.map (\_ -> ())
-
-                                            _ ->
-                                                E.none
-                                    )
-                                )
-                      }
-                    , Cmd.none
-                    )
+            viewerTrans model <| PV.update vm mod
 
         ( ListMsg lm, List mod ) ->
             case PL.update lm mod of
@@ -184,16 +189,12 @@ update msg model =
                     ( { model | page = Sizer nsm }, Cmd.none )
 
                 S.Return pm i ->
-                    let
-                        npm =
-                            case pm of
-                                Viewer vm ->
-                                    Viewer <| PV.setNotesWidth i vm
+                    case pm of
+                        Viewer vm ->
+                            viewerTrans model <| PV.setNotesWidth i vm
 
-                                _ ->
-                                    pm
-                    in
-                    ( { model | page = npm }, Cmd.none )
+                        _ ->
+                            ( model, Cmd.none )
 
                 S.Error nsmod errstring ->
                     ( { model | page = ErrorView <| EV.init errstring (Sizer nsmod) }, Cmd.none )
