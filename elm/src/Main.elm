@@ -1,7 +1,7 @@
 module Main exposing (..)
 
 import Browser as B
-import Browser.Events
+import Browser.Events as BE
 import Dict exposing (Dict)
 import Element as E
 import ErrorView as EV
@@ -15,6 +15,7 @@ import PdfList as PL
 import PdfViewer as PV
 import Process
 import PublicInterface as PI exposing (mkPublicHttpReq)
+import Sizer as S
 import Task
 import Time
 import Util
@@ -26,6 +27,7 @@ type Page
     | OpenDialog (OD.Model PL.Model)
     | Loading (Maybe LastState)
     | ErrorView (EV.Model Page)
+    | Sizer (S.Model Page)
 
 
 type alias Model =
@@ -33,6 +35,8 @@ type alias Model =
     , page : Page
     , saveNotes : Dict String ( Int, PdfNotes )
     , saveNotesCount : Int
+    , width : Int
+    , height : Int
     }
 
 
@@ -42,10 +46,12 @@ type Msg
     | OpenDialogMsg OD.Msg
     | PDMsg PD.Msg
     | EVMsg EV.Msg
+    | SMsg S.Msg
     | Now (Time.Posix -> Cmd Msg) Time.Posix
     | ServerResponse (Result Http.Error PI.ServerResponse)
     | SaveNote String Int
     | OnKeyDown String
+    | OnResize Int Int
 
 
 decodeKey : JD.Decoder String
@@ -53,39 +59,66 @@ decodeKey =
     JD.field "key" JD.string
 
 
+viewerTransition : Model -> PV.Transition PL.Model -> ( Model, Cmd Msg )
+viewerTransition model vt =
+    case vt of
+        PV.Viewer vmod ->
+            ( { model | page = Viewer vmod }, Cmd.none )
+
+        PV.ViewerPersist vmod mkpersist ->
+            ( { model | page = Viewer vmod }
+            , Task.perform
+                (Now (\time -> mkPublicHttpReq model.location (PI.SavePdfState (PdfInfo.encodePersistentState (mkpersist time))) ServerResponse))
+                Time.now
+            )
+
+        PV.ViewerSaveNotes vmod notes ->
+            ( { model
+                | page = Viewer vmod
+                , saveNotes = Dict.insert notes.pdfName ( model.saveNotesCount, notes ) model.saveNotes
+                , saveNotesCount = model.saveNotesCount + 1
+              }
+            , -- N second delay before saving.
+              Process.sleep 5000
+                |> Task.perform
+                    (\_ -> SaveNote notes.pdfName model.saveNotesCount)
+            )
+
+        PV.List listmodel mkpstate ->
+            addLastStateCmd
+                ( { model | page = List listmodel }
+                , Time.now
+                    |> Task.perform (\time -> ListMsg (PL.UpdatePState (mkpstate time)))
+                )
+
+        PV.Sizer vmod w ->
+            ( { model
+                | page =
+                    Sizer
+                        (S.init model.width
+                            model.height
+                            w
+                            (Viewer vmod)
+                            (\md ->
+                                case md of
+                                    Viewer vmd ->
+                                        PV.eview vmd
+                                            |> E.map (\_ -> ())
+
+                                    _ ->
+                                        E.none
+                            )
+                        )
+              }
+            , Cmd.none
+            )
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case ( msg, model.page ) of
         ( ViewerMsg vm, Viewer mod ) ->
-            case PV.update vm mod of
-                PV.Viewer vmod ->
-                    ( { model | page = Viewer vmod }, Cmd.none )
-
-                PV.ViewerPersist vmod mkpersist ->
-                    ( { model | page = Viewer vmod }
-                    , Task.perform
-                        (Now (\time -> mkPublicHttpReq model.location (PI.SavePdfState (PdfInfo.encodePersistentState (mkpersist time))) ServerResponse))
-                        Time.now
-                    )
-
-                PV.ViewerSaveNotes vmod notes ->
-                    ( { model
-                        | page = Viewer vmod
-                        , saveNotes = Dict.insert notes.pdfName ( model.saveNotesCount, notes ) model.saveNotes
-                        , saveNotesCount = model.saveNotesCount + 1
-                      }
-                    , -- N second delay before saving.
-                      Process.sleep 5000
-                        |> Task.perform
-                            (\_ -> SaveNote notes.pdfName model.saveNotesCount)
-                    )
-
-                PV.List listmodel mkpstate ->
-                    addLastStateCmd
-                        ( { model | page = List listmodel }
-                        , Time.now
-                            |> Task.perform (\time -> ListMsg (PL.UpdatePState (mkpstate time)))
-                        )
+            viewerTransition model <| PV.update vm mod
 
         ( ListMsg lm, List mod ) ->
             case PL.update lm mod of
@@ -149,6 +182,22 @@ update msg model =
 
                 _ ->
                     ( model, Cmd.none )
+
+        ( SMsg sm, Sizer smod ) ->
+            case S.update sm smod of
+                S.Sizer nsm ->
+                    ( { model | page = Sizer nsm }, Cmd.none )
+
+                S.Return pm i ->
+                    case pm of
+                        Viewer vm ->
+                            viewerTransition model <| PV.setNotesWidth i vm
+
+                        _ ->
+                            ( model, Cmd.none )
+
+                S.Error nsmod errstring ->
+                    ( { model | page = ErrorView <| EV.init errstring (Sizer nsmod) }, Cmd.none )
 
         ( ServerResponse sr, page ) ->
             case sr of
@@ -218,6 +267,18 @@ update msg model =
             -- in
             update (ViewerMsg (PV.OnKeyDown ks)) model
 
+        ( OnResize w h, pg ) ->
+            let
+                nm =
+                    { model | width = w, height = h }
+            in
+            case pg of
+                Sizer s ->
+                    ( { nm | page = Sizer (S.updateDims w h s) }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
         ( SaveNote pdfname count, _ ) ->
             case Dict.get pdfname model.saveNotes of
                 Just ( dictcount, pdfnotes ) ->
@@ -268,9 +329,16 @@ view model =
                 E.map EVMsg <|
                     EV.view evm
 
+        Sizer sm ->
+            Html.map SMsg <|
+                S.view sm
+
 
 type alias Flags =
-    { location : String }
+    { location : String
+    , width : Int
+    , height : Int
+    }
 
 
 init : Flags -> ( Model, Cmd Msg )
@@ -279,6 +347,8 @@ init flags =
       , page = Loading Nothing
       , saveNotes = Dict.empty
       , saveNotesCount = 0
+      , width = flags.width
+      , height = flags.height
       }
     , mkPublicHttpReq flags.location PI.GetLastState ServerResponse
     )
@@ -292,7 +362,8 @@ main =
             \_ ->
                 Sub.batch
                     [ Sub.map PDMsg PD.pdfreceive
-                    , Browser.Events.onKeyDown (JD.map OnKeyDown decodeKey)
+                    , BE.onKeyDown (JD.map OnKeyDown decodeKey)
+                    , BE.onResize OnResize
                     ]
         , view = view
         , update = update

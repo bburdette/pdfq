@@ -77,17 +77,21 @@ type alias PersistentState =
     , page : Int
     , pageCount : Int
     , lastRead : Time.Posix
+    , notesWidth : Int
     }
 
 
 decodePersistentState : JD.Decoder PersistentState
 decodePersistentState =
-    JD.map5 PersistentState
+    JD.map6 PersistentState
         (JD.field "pdf_name" JD.string)
         (JD.field "zoom" JD.float)
         (JD.field "page" JD.int)
         (JD.field "page_count" JD.int)
         (JD.field "last_read" (JD.int |> JD.map Time.millisToPosix))
+        (JD.maybe (JD.field "notesWidth" JD.int)
+            |> JD.map (Maybe.withDefault 400)
+        )
 
 
 encodePersistentState : PersistentState -> JE.Value
@@ -98,6 +102,7 @@ encodePersistentState state =
         , ( "page", JE.int state.page )
         , ( "page_count", JE.int state.pageCount )
         , ( "last_read", JE.int (Time.posixToMillis state.lastRead) )
+        , ( "notesWidth", JE.int state.notesWidth )
         ]
 
 

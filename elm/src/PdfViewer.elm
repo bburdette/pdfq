@@ -1,7 +1,6 @@
 module PdfViewer exposing (..)
 
 import Common exposing (buttonStyle)
-import Dict
 import Element as E exposing (Element)
 import Element.Background as EBg
 import Element.Border as EB
@@ -21,6 +20,7 @@ type Transition listmodel
     | ViewerPersist (Model listmodel) (Time.Posix -> PersistentState)
     | ViewerSaveNotes (Model listmodel) PdfNotes
     | List listmodel (Time.Posix -> PersistentState)
+    | Sizer (Model listmodel) Int
 
 
 type Msg
@@ -32,6 +32,7 @@ type Msg
     | PageChanged String
     | NoteChanged String
     | TextFocus Bool
+    | StartSizing
 
 
 type alias Model listmodel =
@@ -44,6 +45,7 @@ type alias Model listmodel =
     , listModel : listmodel
     , notes : PdfNotes
     , textFocus : Bool
+    , notesWidth : Int
     }
 
 
@@ -54,6 +56,7 @@ toPersistentState model time =
     , page = model.page
     , pageCount = model.pageCount
     , lastRead = time
+    , notesWidth = model.notesWidth
     }
 
 
@@ -71,6 +74,9 @@ init mbps mbpdfn opdf listmod =
         page =
             mbps |> Maybe.map .page |> Maybe.withDefault 1
 
+        nw =
+            mbps |> Maybe.map .notesWidth |> Maybe.withDefault 400
+
         pdfn =
             mbpdfn
                 |> Maybe.withDefault
@@ -87,6 +93,7 @@ init mbps mbpdfn opdf listmod =
     , listModel = listmod
     , notes = pdfn
     , textFocus = False
+    , notesWidth = nw
     }
 
 
@@ -114,6 +121,11 @@ zoom mult model =
             | zoom = z
             , zoomText = String.fromFloat z
         }
+
+
+setNotesWidth : Int -> Model a -> Transition a
+setNotesWidth w model =
+    persist { model | notesWidth = w }
 
 
 update : Msg -> Model a -> Transition a
@@ -188,6 +200,9 @@ update msg model =
         TextFocus focus ->
             Viewer { model | textFocus = focus }
 
+        StartSizing ->
+            Sizer model model.notesWidth
+
 
 topBar : Model a -> Element Msg
 topBar model =
@@ -233,25 +248,36 @@ topBar model =
 notePanel : Model a -> Element Msg
 notePanel model =
     E.column
-        [ E.width <| E.px 400
+        [ E.width <| E.px model.notesWidth
         , EBg.color <| E.rgb 0.4 0.4 0.4
         , E.spacing 10
-        , E.padding 10
         , E.alignTop
         , E.height E.fill
         ]
-        [ Util.scrollbarYEl [] <|
-            EI.multiline
-                [ E.alignTop
-                , EE.onFocus <| TextFocus True
-                , EE.onLoseFocus <| TextFocus False
+        [ E.row [ E.width E.fill, E.height E.fill, E.spacing 5 ]
+            [ Util.scrollbarYEl
+                [ E.padding 10
                 ]
-                { onChange = NoteChanged
-                , text = model.notes.notes
-                , placeholder = Nothing
-                , label = EI.labelHidden "notes"
-                , spellcheck = True
-                }
+              <|
+                EI.multiline
+                    [ E.alignTop
+                    , EE.onFocus <| TextFocus True
+                    , EE.onLoseFocus <| TextFocus False
+                    ]
+                    { onChange = NoteChanged
+                    , text = model.notes.notes
+                    , placeholder = Nothing
+                    , label = EI.labelHidden "notes"
+                    , spellcheck = True
+                    }
+            , E.column
+                [ E.width <| E.px 5
+                , E.height E.fill
+                , EBg.color <| E.rgb 0.75 0.75 0.75
+                , EE.onMouseDown StartSizing
+                ]
+                []
+            ]
         ]
 
 
@@ -262,29 +288,34 @@ view model =
         , E.width E.fill
         ]
     <|
-        E.column
-            [ E.width E.fill
-            , E.height E.fill
-            ]
-            [ topBar model
-            , E.row [ E.width E.fill, E.height E.fill, E.scrollbarY ]
-                [ notePanel model
-                , E.column
-                    [ E.width E.fill
+        eview model
+
+
+eview : Model a -> Element Msg
+eview model =
+    E.column
+        [ E.width E.fill
+        , E.height E.fill
+        ]
+        [ topBar model
+        , E.row [ E.width E.fill, E.height E.fill, E.scrollbarY ]
+            [ notePanel model
+            , E.column
+                [ E.width E.fill
+                , E.alignTop
+                , E.paddingXY 0 0
+                , E.height E.fill
+                , E.scrollbarY
+                ]
+                [ E.el
+                    [ E.width E.shrink
+                    , E.centerX
+                    , EB.width 3
                     , E.alignTop
-                    , E.paddingXY 0 0
-                    , E.height E.fill
-                    , E.scrollbarY
                     ]
-                    [ E.el
-                        [ E.width E.shrink
-                        , E.centerX
-                        , EB.width 3
-                        , E.alignTop
-                        ]
-                      <|
-                        E.html <|
-                            PdfElement.pdfPage model.pdfName model.page (PdfElement.Scale model.zoom)
-                    ]
+                  <|
+                    E.html <|
+                        PdfElement.pdfPage model.pdfName model.page (PdfElement.Scale model.zoom)
                 ]
             ]
+        ]
