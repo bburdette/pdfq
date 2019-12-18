@@ -268,9 +268,6 @@ update msg model =
 
         ( OnResize w h, pg ) ->
             let
-                _ =
-                    Debug.log "wH" ( w, h )
-
                 nm =
                     { model | width = w, height = h }
             in

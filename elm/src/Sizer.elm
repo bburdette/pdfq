@@ -4,16 +4,12 @@ import Element as E exposing (Element)
 import Element.Background as EBg
 import Element.Border as EB
 import Element.Events as EE
-import Element.Font as EF
-import Element.Input as EI
 import Html exposing (Html)
 import Html.Attributes as HA
-import Html.Events as HE
-import Http
 import Json.Decode as JD
-import Svg exposing (Attribute, Svg, g, rect, svg, text)
-import Svg.Attributes exposing (..)
-import Svg.Events exposing (onClick, onMouseDown, onMouseOut, onMouseUp)
+import Svg exposing (Attribute, Svg, g, rect, svg)
+import Svg.Attributes as SA
+import Svg.Events exposing (onMouseUp)
 import VirtualDom as VD
 
 
@@ -62,23 +58,11 @@ update msg model =
             Return model.prevModel model.position
 
         MouseMoved v ->
-            let
-                _ =
-                    Debug.log "MM: " (getLocation model v)
-            in
             case getLocation model v of
                 Ok l ->
-                    let
-                        _ =
-                            Debug.log "l: " l
-                    in
                     Sizer { model | position = l }
 
                 Err e ->
-                    let
-                        _ =
-                            Debug.log "mmerr: " e
-                    in
                     Sizer model
 
         Noop ->
@@ -104,11 +88,7 @@ overlay model =
         , E.width E.fill
         , EBg.color <| E.rgba 0.5 0.5 0.5 0.5
         , E.inFront E.none
-
-        -- , EE.onMouseMove MouseMoved
         , EE.onMouseUp MouseUp
-
-        -- , EE.onClick Cancel
         ]
         [ E.html <|
             Svg.svg
@@ -121,34 +101,29 @@ overlay model =
 
 sview : Model a -> Svg Msg
 sview model =
-    let
-        _ =
-            Debug.log "svide: " ( model.windowWidth, model.windowHeight )
-    in
     g
         [ onMouseMove
-        , width (String.fromInt model.windowWidth)
-        , height (String.fromInt model.windowHeight)
+        , SA.width (String.fromInt model.windowWidth)
+        , SA.height (String.fromInt model.windowHeight)
         ]
         [ rect
-            [ x "0"
-            , y "0"
-            , width (String.fromInt model.windowWidth)
-            , height (String.fromInt model.windowHeight)
-            , rx "2"
-            , ry "2"
-            , style "fill: #00000000;"
+            [ SA.x "0"
+            , SA.y "0"
+            , SA.width (String.fromInt model.windowWidth)
+            , SA.height (String.fromInt model.windowHeight)
+            , SA.rx "2"
+            , SA.ry "2"
+            , SA.style "fill: #00000000;"
             ]
             []
         , rect
-            -- [ x "50"
-            [ x (String.fromInt model.position)
-            , y "0"
-            , width "5"
-            , height (String.fromInt model.windowHeight)
-            , rx "2"
-            , ry "2"
-            , style "fill: #FF0000;"
+            [ SA.x (String.fromInt model.position)
+            , SA.y "0"
+            , SA.width "5"
+            , SA.height (String.fromInt model.windowHeight)
+            , SA.rx "2"
+            , SA.ry "2"
+            , SA.style "fill: #FF0000;"
             ]
             []
         ]
