@@ -59,8 +59,8 @@ decodeKey =
     JD.field "key" JD.string
 
 
-viewerTrans : Model -> PV.Transition PL.Model -> ( Model, Cmd Msg )
-viewerTrans model vt =
+viewerTransition : Model -> PV.Transition PL.Model -> ( Model, Cmd Msg )
+viewerTransition model vt =
     case vt of
         PV.Viewer vmod ->
             ( { model | page = Viewer vmod }, Cmd.none )
@@ -118,7 +118,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case ( msg, model.page ) of
         ( ViewerMsg vm, Viewer mod ) ->
-            viewerTrans model <| PV.update vm mod
+            viewerTransition model <| PV.update vm mod
 
         ( ListMsg lm, List mod ) ->
             case PL.update lm mod of
@@ -191,7 +191,7 @@ update msg model =
                 S.Return pm i ->
                     case pm of
                         Viewer vm ->
-                            viewerTrans model <| PV.setNotesWidth i vm
+                            viewerTransition model <| PV.setNotesWidth i vm
 
                         _ ->
                             ( model, Cmd.none )
