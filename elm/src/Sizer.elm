@@ -63,7 +63,7 @@ update msg model =
                     Sizer { model | position = l }
 
                 Err e ->
-                    Sizer model
+                    Error model e
 
         Noop ->
             Sizer model
@@ -135,7 +135,6 @@ onMouseMove =
 
 sliderEvt : String -> (JD.Value -> Msg) -> VD.Attribute Msg
 sliderEvt evtname mkmsg =
-    -- VD.onWithOptions evtname (VD.Options True True) (JD.map (\v -> mkmsg v) JD.value)
     VD.on evtname <|
         VD.Custom
             (JD.map
