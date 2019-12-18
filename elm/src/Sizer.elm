@@ -60,7 +60,7 @@ update msg model =
         MouseMoved v ->
             case getLocation model v of
                 Ok l ->
-                    Sizer { model | position = l }
+                    Sizer { model | position = l + 3 }
 
                 Err e ->
                     Error model e
@@ -117,13 +117,13 @@ sview model =
             ]
             []
         , rect
-            [ SA.x (String.fromInt model.position)
+            [ SA.x (String.fromInt (model.position - 5))
             , SA.y "0"
             , SA.width "5"
             , SA.height (String.fromInt model.windowHeight)
             , SA.rx "2"
             , SA.ry "2"
-            , SA.style "fill: #FF0000;"
+            , SA.style "fill: #DFDFDF;"
             ]
             []
         ]
