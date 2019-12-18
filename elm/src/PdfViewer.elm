@@ -1,7 +1,6 @@
 module PdfViewer exposing (..)
 
 import Common exposing (buttonStyle)
-import Dict
 import Element as E exposing (Element)
 import Element.Background as EBg
 import Element.Border as EB
@@ -21,6 +20,7 @@ type Transition listmodel
     | ViewerPersist (Model listmodel) (Time.Posix -> PersistentState)
     | ViewerSaveNotes (Model listmodel) PdfNotes
     | List listmodel (Time.Posix -> PersistentState)
+    | Sizer (Model listmodel)
 
 
 type Msg
@@ -32,6 +32,7 @@ type Msg
     | PageChanged String
     | NoteChanged String
     | TextFocus Bool
+    | StartSizing
 
 
 type alias Model listmodel =
@@ -188,6 +189,9 @@ update msg model =
         TextFocus focus ->
             Viewer { model | textFocus = focus }
 
+        StartSizing ->
+            Sizer model
+
 
 topBar : Model a -> Element Msg
 topBar model =
@@ -240,7 +244,8 @@ notePanel model =
         , E.alignTop
         , E.height E.fill
         ]
-        [ Util.scrollbarYEl [] <|
+        [ EI.button buttonStyle { label = E.text "size", onPress = Just StartSizing }
+        , Util.scrollbarYEl [] <|
             EI.multiline
                 [ E.alignTop
                 , EE.onFocus <| TextFocus True
@@ -262,29 +267,34 @@ view model =
         , E.width E.fill
         ]
     <|
-        E.column
-            [ E.width E.fill
-            , E.height E.fill
-            ]
-            [ topBar model
-            , E.row [ E.width E.fill, E.height E.fill, E.scrollbarY ]
-                [ notePanel model
-                , E.column
-                    [ E.width E.fill
+        eview model
+
+
+eview : Model a -> Element Msg
+eview model =
+    E.column
+        [ E.width E.fill
+        , E.height E.fill
+        ]
+        [ topBar model
+        , E.row [ E.width E.fill, E.height E.fill, E.scrollbarY ]
+            [ notePanel model
+            , E.column
+                [ E.width E.fill
+                , E.alignTop
+                , E.paddingXY 0 0
+                , E.height E.fill
+                , E.scrollbarY
+                ]
+                [ E.el
+                    [ E.width E.shrink
+                    , E.centerX
+                    , EB.width 3
                     , E.alignTop
-                    , E.paddingXY 0 0
-                    , E.height E.fill
-                    , E.scrollbarY
                     ]
-                    [ E.el
-                        [ E.width E.shrink
-                        , E.centerX
-                        , EB.width 3
-                        , E.alignTop
-                        ]
-                      <|
-                        E.html <|
-                            PdfElement.pdfPage model.pdfName model.page (PdfElement.Scale model.zoom)
-                    ]
+                  <|
+                    E.html <|
+                        PdfElement.pdfPage model.pdfName model.page (PdfElement.Scale model.zoom)
                 ]
             ]
+        ]

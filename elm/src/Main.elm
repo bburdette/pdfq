@@ -1,7 +1,7 @@
 module Main exposing (..)
 
 import Browser as B
-import Browser.Events
+import Browser.Events as BE
 import Dict exposing (Dict)
 import Element as E
 import ErrorView as EV
@@ -27,6 +27,7 @@ type Page
     | OpenDialog (OD.Model PL.Model)
     | Loading (Maybe LastState)
     | ErrorView (EV.Model Page)
+    | Sizer (S.Model Page)
 
 
 type alias Model =
@@ -34,6 +35,8 @@ type alias Model =
     , page : Page
     , saveNotes : Dict String ( Int, PdfNotes )
     , saveNotesCount : Int
+    , width : Int
+    , height : Int
     }
 
 
@@ -43,10 +46,12 @@ type Msg
     | OpenDialogMsg OD.Msg
     | PDMsg PD.Msg
     | EVMsg EV.Msg
+    | SMsg S.Msg
     | Now (Time.Posix -> Cmd Msg) Time.Posix
     | ServerResponse (Result Http.Error PI.ServerResponse)
     | SaveNote String Int
     | OnKeyDown String
+    | OnResize Int Int
 
 
 decodeKey : JD.Decoder String
@@ -87,6 +92,28 @@ update msg model =
                         , Time.now
                             |> Task.perform (\time -> ListMsg (PL.UpdatePState (mkpstate time)))
                         )
+
+                PV.Sizer vmod ->
+                    ( { model
+                        | page =
+                            Sizer
+                                (S.init model.width
+                                    model.height
+                                    0
+                                    (Viewer vmod)
+                                    (\md ->
+                                        case md of
+                                            Viewer vmd ->
+                                                PV.eview vmd
+                                                    |> E.map (\_ -> ())
+
+                                            _ ->
+                                                E.none
+                                    )
+                                )
+                      }
+                    , Cmd.none
+                    )
 
         ( ListMsg lm, List mod ) ->
             case PL.update lm mod of
@@ -150,6 +177,17 @@ update msg model =
 
                 _ ->
                     ( model, Cmd.none )
+
+        ( SMsg sm, Sizer smod ) ->
+            case S.update sm smod of
+                S.Sizer nsm ->
+                    ( { model | page = Sizer nsm }, Cmd.none )
+
+                S.Return pm i ->
+                    ( { model | page = pm }, Cmd.none )
+
+                S.Error nsmod errstring ->
+                    ( { model | page = ErrorView <| EV.init errstring (Sizer nsmod) }, Cmd.none )
 
         ( ServerResponse sr, page ) ->
             case sr of
@@ -219,6 +257,21 @@ update msg model =
             -- in
             update (ViewerMsg (PV.OnKeyDown ks)) model
 
+        ( OnResize w h, pg ) ->
+            let
+                _ =
+                    Debug.log "wH" ( w, h )
+
+                nm =
+                    { model | width = w, height = h }
+            in
+            case pg of
+                Sizer s ->
+                    ( { nm | page = Sizer (S.updateDims w h s) }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
         ( SaveNote pdfname count, _ ) ->
             case Dict.get pdfname model.saveNotes of
                 Just ( dictcount, pdfnotes ) ->
@@ -269,9 +322,16 @@ view model =
                 E.map EVMsg <|
                     EV.view evm
 
+        Sizer sm ->
+            Html.map SMsg <|
+                S.view sm
+
 
 type alias Flags =
-    { location : String }
+    { location : String
+    , width : Int
+    , height : Int
+    }
 
 
 init : Flags -> ( Model, Cmd Msg )
@@ -280,6 +340,8 @@ init flags =
       , page = Loading Nothing
       , saveNotes = Dict.empty
       , saveNotesCount = 0
+      , width = flags.width
+      , height = flags.height
       }
     , mkPublicHttpReq flags.location PI.GetLastState ServerResponse
     )
@@ -293,7 +355,8 @@ main =
             \_ ->
                 Sub.batch
                     [ Sub.map PDMsg PD.pdfreceive
-                    , Browser.Events.onKeyDown (JD.map OnKeyDown decodeKey)
+                    , BE.onKeyDown (JD.map OnKeyDown decodeKey)
+                    , BE.onResize OnResize
                     ]
         , view = view
         , update = update
