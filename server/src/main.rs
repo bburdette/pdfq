@@ -33,7 +33,7 @@ use actix_web::{
 };
 use futures::future::Future;
 use json::JsonValue;
-use process_json::{process_public_json, PublicMessage, ServerResponse};
+use process_json::{public_interface, PublicMessage, ServerResponse};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 use std::time::SystemTime;
@@ -118,7 +118,7 @@ fn public(
   let pd = state.pdfdir.clone();
   let pdb = state.pdfdb.clone();
 
-  match process_json::process_public_json(
+  match process_json::public_interface(
     pd.as_str(),
     pdb.as_str(),
     &(ci.remote()),

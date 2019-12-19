@@ -62,7 +62,7 @@ pub struct PdfList {
 }
 
 // public json msgs don't require login.
-pub fn process_public_json(
+pub fn public_interface(
   pdfdir: &str,
   pdfdb: &str,
   ip: &Option<&str>,
