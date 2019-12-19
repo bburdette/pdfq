@@ -7,7 +7,7 @@ use std::io::Write;
 use std::path::Path;
 use std::string::*;
 
-pub fn load_string(file_name: &str) -> Result<String, Box<Error>> {
+pub fn load_string(file_name: &str) -> Result<String, Box<dyn Error>> {
   let path = &Path::new(&file_name);
   let mut inf = try!(File::open(path));
   let mut result = String::new();
@@ -15,7 +15,7 @@ pub fn load_string(file_name: &str) -> Result<String, Box<Error>> {
   Ok(result)
 }
 
-pub fn write_string(file_name: &str, text: &str) -> Result<usize, Box<Error>> {
+pub fn write_string(file_name: &str, text: &str) -> Result<usize, Box<dyn Error>> {
   let path = &Path::new(&file_name);
   let mut inf = File::create(path)?;
   Ok(inf.write(text.as_bytes())?)

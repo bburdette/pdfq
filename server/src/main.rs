@@ -32,8 +32,7 @@ use actix_web::{
   Responder, Result,
 };
 use futures::future::Future;
-use json::JsonValue;
-use process_json::{public_interface, PublicMessage, ServerResponse};
+use process_json::{PublicMessage, ServerResponse};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 use std::time::SystemTime;
@@ -56,7 +55,6 @@ fn files(req: &HttpRequest) -> Result<NamedFile> {
 }
 
 fn pdffiles(state: web::Data<Config>, req: &HttpRequest) -> Result<NamedFile> {
-  let path: PathBuf = req.match_info().query("tail").parse()?;
   let uripath = Path::new(req.uri().path());
   uripath
     .strip_prefix("/pdfs")
@@ -84,7 +82,7 @@ fn sitemap(_req: &HttpRequest) -> Result<NamedFile> {
 }
 
 // simple index handler
-fn mainpage(state: web::Data<Config>, req: HttpRequest) -> HttpResponse {
+fn mainpage(_state: web::Data<Config>, req: HttpRequest) -> HttpResponse {
   println!("mainpage");
   info!(
     "remote ip: {:?}, request:{:?}",
@@ -118,12 +116,8 @@ fn public(
   let pd = state.pdfdir.clone();
   let pdb = state.pdfdb.clone();
 
-  match process_json::public_interface(
-    pd.as_str(),
-    pdb.as_str(),
-    &(ci.remote()),
-    item.into_inner(),
-  ) {
+  match process_json::public_interface(pd.as_str(), pdb.as_str(), &(ci.remote()), item.into_inner())
+  {
     Ok(sr) => HttpResponse::Ok().json(sr),
     Err(e) => {
       error!("uh oh, 'public' err: {:?}", e);
@@ -194,7 +188,7 @@ fn err_main() -> Result<(), std::io::Error> {
 
   println!("config: {:?}", config);
 
-  let sys = actix_rt::System::new("pdf-server");
+  // let sys = actix_rt::System::new("pdf-server");
 
   let nf = NamedFile::open("/home/bburdette/papers/7Sketches2.pdf");
   match nf {

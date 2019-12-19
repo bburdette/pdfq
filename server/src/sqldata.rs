@@ -1,16 +1,10 @@
-#[macro_use]
-use rusqlite::types::ToSql;
-use rusqlite::{params, Connection, NO_PARAMS};
+use rusqlite::{params, Connection};
 use serde_json;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap};
 use std::convert::TryInto;
 use std::error::Error;
-use std::fs::File;
-use std::io::Read;
-use std::path::{Path, PathBuf};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use time::Timespec;
-use util;
+use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Serialize, Debug, Clone)]
 pub struct PdfInfo {
@@ -63,7 +57,7 @@ pub fn dbinit(dbfile: &Path) -> rusqlite::Result<()> {
                   notes           TEXT NOT NULL
                   )",
       params![],
-    )
+    )?
   );
   conn.execute(
     "CREATE TABLE uistate (
@@ -71,7 +65,7 @@ pub fn dbinit(dbfile: &Path) -> rusqlite::Result<()> {
                 state       TEXT NOT NULL
                 )",
     params![],
-  );
+  )?;
   Ok(())
 }
 
@@ -158,7 +152,7 @@ pub fn addpdfentry(dbfile: &Path, filename: &str) -> Result<PdfInfo, Box<dyn Err
   }
 }
 
-pub fn saveUiState(dbfile: &Path, state: &str) -> rusqlite::Result<()> {
+pub fn save_ui_state(dbfile: &Path, state: &str) -> rusqlite::Result<()> {
   let conn = Connection::open(dbfile)?;
 
   conn.execute(
@@ -170,7 +164,7 @@ pub fn saveUiState(dbfile: &Path, state: &str) -> rusqlite::Result<()> {
   Ok(())
 }
 
-pub fn lastUiState(dbfile: &Path) -> rusqlite::Result<Option<String>> {
+pub fn last_ui_state(dbfile: &Path) -> rusqlite::Result<Option<String>> {
   let conn = Connection::open(dbfile)?;
 
   let mut pstmt = conn.prepare("SELECT state FROM uistate WHERE id = 1")?;
@@ -183,7 +177,7 @@ pub fn lastUiState(dbfile: &Path) -> rusqlite::Result<Option<String>> {
   }
 }
 
-pub fn savePdfState(
+pub fn save_pdf_state(
   dbfile: &Path,
   pdfname: &str,
   pdfstate: &str,
@@ -191,7 +185,7 @@ pub fn savePdfState(
 ) -> rusqlite::Result<()> {
   let conn = Connection::open(dbfile)?;
 
-  println!("savePdfState {} {}", pdfname, pdfstate);
+  println!("save_pdf_state {} {}", pdfname, pdfstate);
 
   conn.execute(
     "update pdfinfo set persistentState = ?2, last_read = ?3 where name = ?1",
@@ -201,7 +195,7 @@ pub fn savePdfState(
   Ok(())
 }
 
-pub fn getPdfNotes(dbfile: &Path, pdfname: &str) -> rusqlite::Result<String> {
+pub fn get_pdf_notes(dbfile: &Path, pdfname: &str) -> rusqlite::Result<String> {
   let conn = Connection::open(dbfile)?;
 
   let mut pstmt = conn.prepare("SELECT notes FROM pdfinfo WHERE name = ?1")?;
@@ -214,7 +208,7 @@ pub fn getPdfNotes(dbfile: &Path, pdfname: &str) -> rusqlite::Result<String> {
   }
 }
 
-pub fn savePdfNotes(dbfile: &Path, pdfname: &str, pdfnotes: &str) -> rusqlite::Result<()> {
+pub fn save_pdf_notes(dbfile: &Path, pdfname: &str, pdfnotes: &str) -> rusqlite::Result<()> {
   let conn = Connection::open(dbfile)?;
 
   conn.execute(
@@ -226,7 +220,7 @@ pub fn savePdfNotes(dbfile: &Path, pdfname: &str, pdfnotes: &str) -> rusqlite::R
 }
 
 // scan the pdf dir and return a pdfinfo for each file.
-pub fn pdfscan(pdfdir: &str) -> Result<std::vec::Vec<PdfInfo>, Box<Error>> {
+pub fn pdfscan(pdfdir: &str) -> Result<std::vec::Vec<PdfInfo>, Box<dyn Error>> {
   let p = Path::new(pdfdir);
 
   let mut v = Vec::new();
@@ -234,10 +228,6 @@ pub fn pdfscan(pdfdir: &str) -> Result<std::vec::Vec<PdfInfo>, Box<Error>> {
   if p.exists() {
     for fr in p.read_dir()? {
       let f = fr?;
-      let fname = f
-        .file_name()
-        .into_string()
-        .map_err(|e| format!("bad pdf filename: {:?}", f))?;
 
       v.push(PdfInfo {
         filename: f

@@ -4,13 +4,10 @@ use serde_json::Value;
 use simple_error;
 use sqldata;
 use sqldata::PdfInfo;
-use std::convert::TryInto;
 use std::error::Error;
 use std::fs::File;
-use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use util;
+use std::io::{ Write};
+use std::path::{Path};
 
 #[derive(Deserialize, Debug)]
 pub struct PublicMessage {
@@ -65,7 +62,7 @@ pub struct PdfList {
 pub fn public_interface(
   pdfdir: &str,
   pdfdb: &str,
-  ip: &Option<&str>,
+  _ip: &Option<&str>,
   msg: PublicMessage,
 ) -> Result<Option<ServerResponse>, Box<dyn Error>> {
   let pdbp = Path::new(&pdfdb);
@@ -93,7 +90,7 @@ pub fn public_interface(
         .data
         .ok_or(simple_error::SimpleError::new("pdfstate data not found!"))?;
       let ps: PersistentState = serde_json::from_value(json.clone())?;
-      sqldata::savePdfState(
+      sqldata::save_pdf_state(
         pdbp,
         ps.pdf_name.as_str(),
         json.to_string().as_str(),
@@ -133,7 +130,6 @@ pub fn public_interface(
       let gp: GetPdf = serde_json::from_value(json.clone())?;
       {
         let mut res = reqwest::get(gp.pdf_url.as_str())?;
-        let mut body = String::new();
         let path = &Path::new(pdfdir).join(gp.pdf_name.as_str());
         let mut inf = File::create(path)?;
         res.copy_to(&mut inf)?;
@@ -153,7 +149,7 @@ pub fn public_interface(
         .data
         .ok_or(simple_error::SimpleError::new("getnotes data not found!"))?;
       let pdfname: String = serde_json::from_value(json.clone())?;
-      let notes = sqldata::getPdfNotes(pdbp, pdfname.as_str())?;
+      let notes = sqldata::get_pdf_notes(pdbp, pdfname.as_str())?;
       let data = serde_json::to_value(PdfNotes {
         pdf_name: pdfname,
         notes: notes,
@@ -169,7 +165,7 @@ pub fn public_interface(
         .data
         .ok_or(simple_error::SimpleError::new("savenotes data not found!"))?;
       let pdfnotes: PdfNotes = serde_json::from_value(json.clone())?;
-      sqldata::savePdfNotes(pdbp, pdfnotes.pdf_name.as_str(), pdfnotes.notes.as_str())?;
+      sqldata::save_pdf_notes(pdbp, pdfnotes.pdf_name.as_str(), pdfnotes.notes.as_str())?;
       Ok(Some(ServerResponse {
         what: "notesaved".to_string(),
         content: serde_json::Value::Null,
@@ -183,7 +179,7 @@ pub fn public_interface(
           content: serde_json::Value::Null,
         })
       };
-      sqldata::lastUiState(pdbp)
+      sqldata::last_ui_state(pdbp)
         .map(|opss| {
           opss
             .and_then(|statestring| {
@@ -211,10 +207,9 @@ pub fn public_interface(
     }
     // save app state.
     "savelaststate" => {
-      msg.data.map_or(
-        Ok(()),
-        (|json| sqldata::saveUiState(pdbp, json.to_string().as_str())),
-      )?;
+      msg.data.map_or(Ok(()), |json| {
+        sqldata::save_ui_state(pdbp, json.to_string().as_str())
+      })?;
       Ok(Some(ServerResponse {
         what: "laststatesaved".to_string(),
         content: serde_json::Value::Null,
