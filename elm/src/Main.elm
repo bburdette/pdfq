@@ -10,6 +10,7 @@ import Http
 import Json.Decode as JD
 import OpenDialog as OD
 import PdfDoc as PD
+import PdfElement
 import PdfInfo exposing (LastState(..), PdfNotes)
 import PdfList as PL
 import PdfViewer as PV
@@ -94,7 +95,9 @@ viewerTransition model vt =
                     , saveNotes = Dict.remove pdfnotes.pdfName model.saveNotes
                   }
                 , Cmd.batch
-                    [ -- update state in the PdfList.
+                    [ -- close the pdf in pdf.js
+                      Cmd.map PDMsg <| PD.pdfsend (PdfElement.Close { name = pdfnotes.pdfName })
+                    , -- update state in the PdfList.
                       Time.now
                         |> Task.perform (\time -> ListMsg (PL.UpdatePState (mkpstate time)))
                     , -- save the pdfnotes and state to the server.
