@@ -56,6 +56,11 @@ type SortDirection
     | Down
 
 
+progressColor : E.Color
+progressColor =
+    E.rgb 0.5 0.5 0.5
+
+
 updateState : Model -> PersistentState -> Model
 updateState model state =
     sort
@@ -221,7 +226,7 @@ view model =
                             Just state ->
                                 E.row
                                     [ E.width <| E.px 100
-                                    , EB.color <| E.rgb 0 0 0.7
+                                    , EB.color progressColor
                                     , EB.width 1
                                     ]
                                     [ E.row
@@ -231,7 +236,7 @@ view model =
                                                     ((toFloat state.page * 100)
                                                         / toFloat state.pageCount
                                                     )
-                                        , EBg.color <| E.rgb 0 0 0.7
+                                        , EBg.color progressColor
                                         ]
                                         [ E.text "" ]
                                     , E.row [ E.width E.fill ] []
