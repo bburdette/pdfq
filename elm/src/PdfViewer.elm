@@ -19,7 +19,7 @@ type Transition listmodel
     = Viewer (Model listmodel)
     | ViewerPersist (Model listmodel) (Time.Posix -> PersistentState)
     | ViewerSaveNotes (Model listmodel) PdfNotes
-    | List listmodel (Time.Posix -> PersistentState)
+    | List listmodel (Time.Posix -> PersistentState) PdfNotes
     | Sizer (Model listmodel) Int
 
 
@@ -132,7 +132,7 @@ update : Msg -> Model a -> Transition a
 update msg model =
     case msg of
         SelectClick ->
-            List model.listModel (toPersistentState model)
+            List model.listModel (toPersistentState model) model.notes
 
         OnKeyDown key ->
             if model.textFocus then

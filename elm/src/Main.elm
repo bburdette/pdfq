@@ -52,6 +52,7 @@ type Msg
     | SaveNote String Int
     | OnKeyDown String
     | OnResize Int Int
+    | DoCmd (Cmd Msg)
 
 
 decodeKey : JD.Decoder String
@@ -84,11 +85,37 @@ viewerTransition model vt =
                     (\_ -> SaveNote notes.pdfName model.saveNotesCount)
             )
 
-        PV.List listmodel mkpstate ->
+        PV.List listmodel mkpstate pdfnotes ->
             addLastStateCmd
-                ( { model | page = List listmodel }
-                , Time.now
-                    |> Task.perform (\time -> ListMsg (PL.UpdatePState (mkpstate time)))
+                ( { model
+                    | page = List listmodel
+
+                    -- prevent any time-delayed notes save.
+                    , saveNotes = Dict.remove pdfnotes.pdfName model.saveNotes
+                  }
+                , Cmd.batch
+                    [ -- update state in the PdfList.
+                      Time.now
+                        |> Task.perform (\time -> ListMsg (PL.UpdatePState (mkpstate time)))
+                    , -- save the pdfnotes and state to the server.
+                      Time.now
+                        |> Task.perform
+                            (\time ->
+                                DoCmd <|
+                                    Cmd.batch
+                                        [ mkPublicHttpReq
+                                            model.location
+                                            (PI.SavePdfState
+                                                (PdfInfo.encodePersistentState (mkpstate time))
+                                            )
+                                            ServerResponse
+                                        , mkPublicHttpReq
+                                            model.location
+                                            (PI.SaveNotes pdfnotes)
+                                            ServerResponse
+                                        ]
+                            )
+                    ]
                 )
 
         PV.Sizer vmod w ->
@@ -114,6 +141,35 @@ viewerTransition model vt =
             )
 
 
+listTransition : Model -> PL.Transition -> ( Model, Cmd Msg )
+listTransition model lt =
+    case lt of
+        PL.List nmod ->
+            ( { model | page = List nmod }, Cmd.none )
+
+        PL.ListCmd nmod lcmd ->
+            ( { model | page = List nmod }, Cmd.map ListMsg lcmd )
+
+        PL.OpenDialog nlm ->
+            ( { model
+                | page =
+                    OpenDialog
+                        (OD.init model.location
+                            nlm
+                            (\m -> E.map (\_ -> ()) (PL.view m))
+                        )
+              }
+            , Cmd.none
+            )
+
+        PL.Viewer vmod ->
+            addLastStateCmd
+                ( { model | page = Viewer vmod }, Cmd.none )
+
+        PL.Error e ->
+            ( { model | page = ErrorView <| EV.init e model.page }, Cmd.none )
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case ( msg, model.page ) of
@@ -121,31 +177,7 @@ update msg model =
             viewerTransition model <| PV.update vm mod
 
         ( ListMsg lm, List mod ) ->
-            case PL.update lm mod of
-                PL.List nmod ->
-                    ( { model | page = List nmod }, Cmd.none )
-
-                PL.ListCmd nmod lcmd ->
-                    ( { model | page = List nmod }, Cmd.map ListMsg lcmd )
-
-                PL.OpenDialog nlm ->
-                    ( { model
-                        | page =
-                            OpenDialog
-                                (OD.init model.location
-                                    nlm
-                                    (\m -> E.map (\_ -> ()) (PL.view m))
-                                )
-                      }
-                    , Cmd.none
-                    )
-
-                PL.Viewer vmod ->
-                    addLastStateCmd
-                        ( { model | page = Viewer vmod }, Cmd.none )
-
-                PL.Error e ->
-                    ( { model | page = ErrorView <| EV.init e (List mod) }, Cmd.none )
+            listTransition model <| PL.update lm mod
 
         ( OpenDialogMsg odm, OpenDialog odmod ) ->
             case OD.update odm odmod of
@@ -293,6 +325,9 @@ update msg model =
                 Nothing ->
                     -- I guess it got saved already?  Can't save what we don't have I guess.
                     ( model, Cmd.none )
+
+        ( DoCmd cmd, _ ) ->
+            ( model, cmd )
 
         ( _, _ ) ->
             ( model, Cmd.none )
