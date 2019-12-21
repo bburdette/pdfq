@@ -8,7 +8,7 @@ use std::error::Error;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-fn migrate_test() {
+pub fn migrate_test() {
   let mut m = Migration::new();
 
   m.create_table("users", |t| {

@@ -159,6 +159,8 @@ fn load_config() -> Config {
 }
 
 fn main() {
+  sqldata::migrate_test();
+  
   match err_main() {
     Err(e) => println!("error: {:?}", e),
     Ok(_) => (),
