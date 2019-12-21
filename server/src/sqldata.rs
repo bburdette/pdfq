@@ -11,10 +11,16 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub fn migrate_test() {
   let mut m = Migration::new();
 
-  m.create_table("users", |t| {
-    t.add_column("name", types::varchar(255));
-    t.add_column("age", types::integer());
-    t.add_column("owns_plushy_sharks", types::boolean());
+  m.create_table("pdfinfo", |t| {
+    t.add_column("name", types::text().nullable(false).primary(true));
+    t.add_column("last_read", types::integer());
+    t.add_column( "persistentState", types::text() );
+    t.add_column( "notes", types::text().nullable(false) );
+  });
+
+  m.create_table("uistate", |t| {
+    t.add_column("id", types::integer().nullable(false).primary(true));
+    t.add_column("state", types::text());
   });
 
   println!("{}", m.make::<Sqlite>());
