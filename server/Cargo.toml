@@ -22,3 +22,5 @@ toml = "0.4.8"
 simple-error = "0.2.1"
 json = "*"
 reqwest = "0.9.24"
+barrel = { version = "0.6.2", features = ["sqlite3"] }
+refinery = { version = "0.1.10" }

@@ -1,10 +1,24 @@
+use barrel::backend::Sqlite;
+use barrel::{types, Migration};
 use rusqlite::{params, Connection};
 use serde_json;
-use std::collections::{BTreeMap};
+use std::collections::BTreeMap;
 use std::convert::TryInto;
 use std::error::Error;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
+
+fn migrate_test() {
+  let mut m = Migration::new();
+
+  m.create_table("users", |t| {
+    t.add_column("name", types::varchar(255));
+    t.add_column("age", types::integer());
+    t.add_column("owns_plushy_sharks", types::boolean());
+  });
+
+  println!("{}", m.make::<Sqlite>());
+}
 
 #[derive(Serialize, Debug, Clone)]
 pub struct PdfInfo {
