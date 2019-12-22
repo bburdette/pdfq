@@ -6,8 +6,8 @@ use sqldata;
 use sqldata::PdfInfo;
 use std::error::Error;
 use std::fs::File;
-use std::io::{ Write};
-use std::path::{Path};
+use std::io::Write;
+use std::path::Path;
 
 #[derive(Deserialize, Debug)]
 pub struct PublicMessage {

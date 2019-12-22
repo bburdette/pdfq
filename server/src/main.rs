@@ -17,10 +17,11 @@ extern crate log;
 extern crate rusqlite;
 #[macro_use]
 extern crate serde_derive;
-extern crate base64;
 extern crate barrel;
+extern crate base64;
 extern crate refinery;
 
+mod migrations;
 mod process_json;
 mod sqldata;
 mod util;
@@ -159,8 +160,8 @@ fn load_config() -> Config {
 }
 
 fn main() {
-  sqldata::migrate_test();
-  
+  //  sqldata::migrate_test();
+
   match err_main() {
     Err(e) => println!("error: {:?}", e),
     Ok(_) => (),

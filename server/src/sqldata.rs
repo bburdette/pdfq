@@ -1,5 +1,8 @@
 use barrel::backend::Sqlite;
 use barrel::{types, Migration};
+use migrations;
+use refinery::embed_migrations;
+use refinery::{Migrate, MigrateGrouped};
 use rusqlite::{params, Connection};
 use serde_json;
 use std::collections::BTreeMap;
@@ -8,23 +11,7 @@ use std::error::Error;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-pub fn migrate_test() {
-  let mut m = Migration::new();
 
-  m.create_table("pdfinfo", |t| {
-    t.add_column("name", types::text().nullable(false).primary(true));
-    t.add_column("last_read", types::integer());
-    t.add_column( "persistentState", types::text() );
-    t.add_column( "notes", types::text().nullable(false) );
-  });
-
-  m.create_table("uistate", |t| {
-    t.add_column("id", types::integer().nullable(false).primary(true));
-    t.add_column("state", types::text());
-  });
-
-  println!("{}", m.make::<Sqlite>());
-}
 
 #[derive(Serialize, Debug, Clone)]
 pub struct PdfInfo {
@@ -63,31 +50,39 @@ pub fn pdflist(dbfile: &Path) -> rusqlite::Result<Vec<PdfInfo>> {
   Ok(pv)
 }
 
-pub fn dbinit(dbfile: &Path) -> rusqlite::Result<()> {
+mod embedded {
+  use refinery::embed_migrations;
+  embed_migrations!("src/migrations");
+}
+
+pub fn dbinit(dbfile: &Path) -> Result<(), Box<dyn Error>> {
   let conn = Connection::open(dbfile)?;
 
+  migrations::runner().run(&mut conn).map_err(|e| e.into())
+}
+
   // create the pdfinfo table.
-  println!(
-    "pdfinfo create: {:?}",
+  /*  println!(
+      "pdfinfo create: {:?}",
+      conn.execute(
+        "CREATE TABLE pdfinfo (
+                    name            TEXT NOT NULL PRIMARY KEY,
+                    last_read       INTEGER,
+                    persistentState BLOB,
+                    notes           TEXT NOT NULL
+                    )",
+        params![],
+      )?
+    );
     conn.execute(
-      "CREATE TABLE pdfinfo (
-                  name            TEXT NOT NULL PRIMARY KEY,
-                  last_read       INTEGER,
-                  persistentState BLOB,
-                  notes           TEXT NOT NULL
+      "CREATE TABLE uistate (
+                  id          INTEGER NOT NULL PRIMARY KEY,
+                  state       TEXT NOT NULL
                   )",
       params![],
-    )?
-  );
-  conn.execute(
-    "CREATE TABLE uistate (
-                id          INTEGER NOT NULL PRIMARY KEY,
-                state       TEXT NOT NULL
-                )",
-    params![],
-  )?;
-  Ok(())
-}
+    )?;
+  */
+  // Ok(())
 
 // create entries in the db for pdfs that aren't in there yet.
 // then return a list of entries for pdfs that are in the dir.
