@@ -61,29 +61,6 @@ pub fn dbinit(dbfile: &Path) -> Result<(), Box<dyn Error>> {
   migrations::runner().run(&mut conn).map_err(|e| e.into())
 }
 
-  // create the pdfinfo table.
-  /*  println!(
-      "pdfinfo create: {:?}",
-      conn.execute(
-        "CREATE TABLE pdfinfo (
-                    name            TEXT NOT NULL PRIMARY KEY,
-                    last_read       INTEGER,
-                    persistentState BLOB,
-                    notes           TEXT NOT NULL
-                    )",
-        params![],
-      )?
-    );
-    conn.execute(
-      "CREATE TABLE uistate (
-                  id          INTEGER NOT NULL PRIMARY KEY,
-                  state       TEXT NOT NULL
-                  )",
-      params![],
-    )?;
-  */
-  // Ok(())
-
 // create entries in the db for pdfs that aren't in there yet.
 // then return a list of entries for pdfs that are in the dir.
 pub fn pdfupret(
