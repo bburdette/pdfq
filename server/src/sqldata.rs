@@ -56,7 +56,7 @@ mod embedded {
 }
 
 pub fn dbinit(dbfile: &Path) -> Result<(), Box<dyn Error>> {
-  let conn = Connection::open(dbfile)?;
+  let mut conn = Connection::open(dbfile)?;
 
   migrations::runner().run(&mut conn).map_err(|e| e.into())
 }
