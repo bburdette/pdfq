@@ -195,12 +195,6 @@ fn err_main() -> Result<(), std::io::Error> {
 
   // let sys = actix_rt::System::new("pdf-server");
 
-  let nf = NamedFile::open("/home/bburdette/papers/7Sketches2.pdf");
-  match nf {
-    Ok(_) => println!("ef: "),
-    Err(e) => println!("err: {}", e),
-  }
-
   let c = web::Data::new(config.clone());
   HttpServer::new(move || {
     App::new()
