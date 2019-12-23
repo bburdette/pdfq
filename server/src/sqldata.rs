@@ -2,7 +2,7 @@ use barrel::backend::Sqlite;
 use barrel::{types, Migration};
 use migrations;
 use refinery::embed_migrations;
-use refinery::{Migrate, MigrateGrouped};
+use refinery::Migrate;
 use rusqlite::{params, Connection};
 use serde_json;
 use std::collections::BTreeMap;
@@ -10,8 +10,6 @@ use std::convert::TryInto;
 use std::error::Error;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
-
-
 
 #[derive(Serialize, Debug, Clone)]
 pub struct PdfInfo {
