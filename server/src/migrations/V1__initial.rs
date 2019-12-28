@@ -11,10 +11,10 @@ pub fn migration() -> String {
     t.add_column( "notes", types::text().nullable(false) );
   });
 
-  m.create_table("uistate", |t| {
-    t.add_column("id", types::integer().nullable(false).primary(true));
-    t.add_column("state", types::text());
-  });
+  // m.create_table("uistate", |t| {
+  //   t.add_column("id", types::integer().nullable(false).primary(true));
+  //   t.add_column("state", types::text());
+  // });
 
   let s = m.make::<Sqlite>();
   println!("s: {}", s);
