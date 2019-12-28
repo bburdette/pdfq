@@ -16,5 +16,7 @@ pub fn migration() -> String {
     t.add_column("state", types::text());
   });
 
-  m.make::<Sqlite>()
+  let s = m.make::<Sqlite>();
+  println!("s: {}", s);
+  s
 }
