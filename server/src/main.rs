@@ -180,11 +180,12 @@ fn err_main() -> Result<(), Box<dyn Error>> {
 
   let pdfdbp = Path::new(&config.pdfdb);
 
-  if !pdfdbp.exists() {
-    println!("before dbinit");
-    sqldata::dbinit(pdfdbp)?;
-    println!("after dbinit");
-  }
+  sqldata::dbinit(pdfdbp)?;
+  // if !pdfdbp.exists() {
+  //   println!("before dbinit");
+  //   sqldata::dbinit(pdfdbp)?;
+  //   println!("after dbinit");
+  // }
 
   if config.createdirs {
     std::fs::create_dir_all(config.pdfdir.clone())?;
