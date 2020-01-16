@@ -1,29 +1,28 @@
-{ stdenv, cargo }:
+{ stdenv, fetchFromGitHub, rustPlatform, Security }:
 
-stdenv.mkDerivation rec {
+rustPlatform.buildRustPackage rec {
   pname = "pdfq";
   version = "1.0";
 
-  src = builtins.fetchGit {
-    url = "git@github.com:bburdette/pdfq.git";
-    ref = "master";
+  src = fetchFromGitHub {
+    owner = "bburdette";
+    repo = pname;
     rev = "74aaa3f410219588d6187fa16fd4e41ffc432eb9";
+    sha256 = "17v1bd2mdqbyiq88q1ab854fzh454v3wq777w7cziqnj5zb3mjmr";
   };
 
-  builder=./builder.sh;
-  inherit cargo;
+  sourceRoot = "source/server";
+  cargoSha256 = "0hh3sgcdcp0llgf3i3dysrr3vry3fv3fzzf44ad1953d5mnyhvap";
+  # dontMakeSourcesWritable=1;
 
-  doCheck = true;
+  buildInputs = stdenv.lib.optional stdenv.isDarwin Security;
 
   meta = with stdenv.lib; {
-    description = "pdf reader web server";
-    longDescription = ''
-     pdfq is a web server that tracks progress on reading pdfs in 
-     your collection.
-    '';
+    description = "A pdf reader that saves your place.";
     homepage = https://github.com/bburdette/pdfq;
-    license = licenses.bsd3;
-    # maintainers = [ maintainers.eelco ];
+    license = with licenses; [ bsd3 ];
+    maintainers = [ ];
     platforms = platforms.all;
   };
 }
+
