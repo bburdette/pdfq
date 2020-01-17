@@ -1,4 +1,4 @@
-{ stdenv, fetchFromGitHub, rustPlatform, Security }:
+{ stdenv, fetchFromGitHub, rustPlatform, Security, openssl, pkgconfig, sqlite }:
 
 rustPlatform.buildRustPackage rec {
   pname = "pdfq";
@@ -7,15 +7,17 @@ rustPlatform.buildRustPackage rec {
   src = fetchFromGitHub {
     owner = "bburdette";
     repo = pname;
-    rev = "74aaa3f410219588d6187fa16fd4e41ffc432eb9";
-    sha256 = "17v1bd2mdqbyiq88q1ab854fzh454v3wq777w7cziqnj5zb3mjmr";
+    rev = "b3f680260c65dc613371dce8b9045bb8122c5803";
+    sha256 = "1xjqvxp5gcnj9cgh28g5vvj0829i87y39zclnqgw4w36fxfhx9bp";
   };
 
   sourceRoot = "source/server";
-  cargoSha256 = "0hh3sgcdcp0llgf3i3dysrr3vry3fv3fzzf44ad1953d5mnyhvap";
+  cargoSha256 = "117r9z48wszi2y0wshxmd4nawd472zrg1qiz91if991bijv3pl9m";
   # dontMakeSourcesWritable=1;
 
-  buildInputs = stdenv.lib.optional stdenv.isDarwin Security;
+  buildInputs = [(stdenv.lib.optional stdenv.isDarwin Security) openssl sqlite];
+
+  nativeBuildInputs = [ pkgconfig ];
 
   meta = with stdenv.lib; {
     description = "A pdf reader that saves your place.";
