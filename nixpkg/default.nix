@@ -1,8 +1,20 @@
-{ stdenv, fetchFromGitHub, rustPlatform, Security, openssl, pkgconfig, sqlite }:
+{ stdenv
+, fetchFromGitHub
+, rustPlatform
+, Security
+, openssl
+, pkgconfig
+, sqlite
+, callPackage }:
+
+# , lib
+# , packr
 
 rustPlatform.buildRustPackage rec {
   pname = "pdfq";
   version = "1.0";
+
+  ui = callPackage ./ui.nix { };
 
   src = fetchFromGitHub {
     owner = "bburdette";
@@ -10,6 +22,14 @@ rustPlatform.buildRustPackage rec {
     rev = "b3f680260c65dc613371dce8b9045bb8122c5803";
     sha256 = "1xjqvxp5gcnj9cgh28g5vvj0829i87y39zclnqgw4w36fxfhx9bp";
   };
+
+  preBuild = ''
+    cp -r ${ui}/libexec/gotify-ui/deps/gotify-ui/build ui/build && packr
+  '';
+
+  # cargo-culting this from the gotify package.
+  subPackages = [ "." ];
+
 
   sourceRoot = "source/server";
   cargoSha256 = "117r9z48wszi2y0wshxmd4nawd472zrg1qiz91if991bijv3pl9m";

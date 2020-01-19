@@ -2,6 +2,7 @@
 , fetchFromGitHub
 , Security
 , utillinux
+, elmPackages
 }:
 
 yarn2nix-moretea.mkYarnPackage rec {
@@ -19,15 +20,18 @@ yarn2nix-moretea.mkYarnPackage rec {
     sha256 = "0pvnym4hn9a8xicvxmk6nf3lddsfv1sxl32qblzz96ndq5m8wiyp";
   };
 
-  nativeBuildInputs = [ utillinux ];
+  nativeBuildInputs = [ utillinux elmPackages.elm ];
 
   # src = "${src_all}/ui";
 
     # yarn install
     # ./node-packages/.bin/parcel index.html --out-dir=$out/static
   buildPhase = ''
-    ls deps
-    ./node_modules/.bin/parcel build ${src}/index.html --out-dir=$out/static 
+    # ln -s ${src}/index.html node_modules ${src}/node_modules 
+    cp -r ${src}/* .
+    ls
+    elm --version 
+    ./node_modules/.bin/parcel build index.html --out-dir=$out/static 
   '';
 
 }
