@@ -6,7 +6,8 @@
   "devDependencies": {
     "elm-hot": "^1.1.2",
     "parcel": "^1.12.4",
-    "parcel-plugin-static-files-copy": "^2.2.1"
+    "parcel-plugin-static-files-copy": "^2.2.1",
+    "node-elm-compiler": "^5.0.4"
   },
   "dependencies": {
     "node-ensure": "^0.0.0",
