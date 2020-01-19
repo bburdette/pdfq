@@ -16,8 +16,8 @@ yarn2nix-moretea.mkYarnPackage rec {
   src = fetchFromGitHub {
     owner = "bburdette";
     repo = "pdfq";
-    rev = "f8f0da6d7eba6ad4af82ace24ef172f3ce098165";
-    sha256 = "0pvnym4hn9a8xicvxmk6nf3lddsfv1sxl32qblzz96ndq5m8wiyp";
+    rev = "d72a7620b1a62197afc93523925e3eef061f3120";
+    sha256 = "1rqyfdlng1q1l7ivx0av51ayjvkmsjwgrsp6a9wz3sid784d6666";
   };
 
   nativeBuildInputs = [ utillinux elmPackages.elm ];
@@ -28,8 +28,11 @@ yarn2nix-moretea.mkYarnPackage rec {
     # ./node-packages/.bin/parcel index.html --out-dir=$out/static
   buildPhase = ''
     # ln -s ${src}/index.html node_modules ${src}/node_modules 
+    export HOME=$(mktemp -d)
+    # HOME=.
     cp -r ${src}/* .
-    ls
+    ls $HOME
+    mkdir .elm
     elm --version 
     ./node_modules/.bin/parcel build index.html --out-dir=$out/static 
   '';
