@@ -1,6 +1,7 @@
 { yarn2nix-moretea
 , fetchFromGitHub
 , Security
+, utillinux
 }:
 
 yarn2nix-moretea.mkYarnPackage rec {
@@ -14,15 +15,19 @@ yarn2nix-moretea.mkYarnPackage rec {
   src = fetchFromGitHub {
     owner = "bburdette";
     repo = "pdfq";
-    rev = "b3f680260c65dc613371dce8b9045bb8122c5803";
-    sha256 = "1xjqvxp5gcnj9cgh28g5vvj0829i87y39zclnqgw4w36fxfhx9bp";
+    rev = "f8f0da6d7eba6ad4af82ace24ef172f3ce098165";
+    sha256 = "0pvnym4hn9a8xicvxmk6nf3lddsfv1sxl32qblzz96ndq5m8wiyp";
   };
+
+  nativeBuildInputs = [ utillinux ];
 
   # src = "${src_all}/ui";
 
+    # yarn install
+    # ./node-packages/.bin/parcel index.html --out-dir=$out/static
   buildPhase = ''
-    yarn install
-    ./node-packages/.bin/parcel index.html --out-dir=$out/static
+    ls
+    ./node_modules/.bin/parcel index.html --out-dir=$out/static
   '';
 
 }
