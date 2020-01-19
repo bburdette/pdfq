@@ -26,8 +26,8 @@ yarn2nix-moretea.mkYarnPackage rec {
     # yarn install
     # ./node-packages/.bin/parcel index.html --out-dir=$out/static
   buildPhase = ''
-    ls
-    ./node_modules/.bin/parcel index.html --out-dir=$out/static
+    ls deps
+    ./node_modules/.bin/parcel build ${src}/index.html --out-dir=$out/static 
   '';
 
 }
