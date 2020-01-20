@@ -26,15 +26,16 @@ yarn2nix-moretea.mkYarnPackage rec {
 
     # yarn install
     # ./node-packages/.bin/parcel index.html --out-dir=$out/static
+
   buildPhase = ''
     # ln -s ${src}/index.html node_modules ${src}/node_modules 
     export HOME=$(mktemp -d)
     # HOME=.
     cp -r ${src}/* .
+    chmod +w -R .
     ls $HOME
-    mkdir .elm
     elm --version 
-    ./node_modules/.bin/parcel build index.html --out-dir=$out/static 
+    ./node_modules/.bin/parcel build ./index.html --out-dir=$out/static 
   '';
 
 }
