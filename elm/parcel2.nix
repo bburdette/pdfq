@@ -31,8 +31,8 @@ in pkgs.stdenv.mkDerivation {
   '';
 
   configurePhase = pkgs.elmPackages.fetchElmDeps {
-    elmPackages = import ./elm/elm-srcs.nix;
-    versionsDat = ./elm/versions.dat;
+    elmPackages = import ./elm-srcs.nix;
+    versionsDat = ./versions.dat;
   };
 
   installPhase = ''
