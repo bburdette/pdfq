@@ -42,6 +42,7 @@ yarn2nix-moretea.mkYarnPackage rec {
     chmod +w -R .
     ls $HOME
     elm --version
+    yarn install
     ls 
     ./node_modules/.bin/parcel build ./index.html --out-dir=$out/static 
   '';
