@@ -6,6 +6,7 @@
 }:
 
 yarn2nix-moretea.mkYarnPackage rec {
+
   name = "pdfq-ui";
 
   packageJSON = ../package.json;
@@ -16,8 +17,14 @@ yarn2nix-moretea.mkYarnPackage rec {
   src = fetchFromGitHub {
     owner = "bburdette";
     repo = "pdfq";
-    rev = "d72a7620b1a62197afc93523925e3eef061f3120";
-    sha256 = "1rqyfdlng1q1l7ivx0av51ayjvkmsjwgrsp6a9wz3sid784d6666";
+    rev = "5918f1bc2b7d9de99968d7e973657c137ef70a91";
+    sha256 = "0fh8gdy5cf8n0dxbqyf1rzp05i934drmysdyl1z9zyx80bwiqkr3";
+  };
+ 
+  configurePhase = elmPackages.fetchElmDeps {
+    elmPackages = import ./elm/elm-srcs.nix;
+    registryDat = ./elm/versions.dat;
+    elmVersion = "0.19.1";
   };
 
   nativeBuildInputs = [ utillinux elmPackages.elm ];
@@ -34,9 +41,9 @@ yarn2nix-moretea.mkYarnPackage rec {
     cp -r ${src}/* .
     chmod +w -R .
     ls $HOME
-    elm --version 
+    elm --version
+    ls 
     ./node_modules/.bin/parcel build ./index.html --out-dir=$out/static 
   '';
-
 }
 
