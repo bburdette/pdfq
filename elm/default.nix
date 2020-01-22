@@ -46,12 +46,19 @@ let
       in ''
         ls "${yarnPkg.out}"
         echo "installPhase"
-        ls 
+        ln -sf ${yarnPkg}/libexec/yarnparcelelm/node_modules/.bin/parcel parcel
+        ln -sf ${yarnPkg}/libexec/yarnparcelelm/node_modules .
+ 
         mkdir -p $out/share/doc
-        ${lib.concatStrings (map (module: ''
-          echo "compiling ${elmfile module}"
-          elm make ${elmfile module} --output $out/${module}.html --docs $out/share/doc/${module}.json
-        '') targets)}
+
+        ls -la
+
+        ./parcel build index.html --out-dir=$out
+    
+        # ${lib.concatStrings (map (module: ''
+        #   echo "compiling ${elmfile module}"
+        #   elm make ${elmfile module} --output $out/${module}.html --docs $out/share/doc/${module}.json
+        # '') targets)}
       '';
     };
 in mkDerivation {
