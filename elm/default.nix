@@ -5,6 +5,24 @@
 with (import nixpkgs config);
 
 let
+  yarnPkg = yarn2nix-moretea.mkYarnPackage {
+    name = "pdfq-parcel";
+    # packageJSON = ./package.json;
+    # unpackPhase = ":";
+    src = ./.;
+    # yarnLock = ./yarn.lock;
+    # publishBinsFor = ["parcel-bundler"];
+    # buildPhase = ''
+    #     # ln -s ${src}/index.html node_modules ${src}/node_modules 
+    #     export HOME=$(mktemp -d)
+    #     # HOME=.
+    #     cp -r ${src}/* .
+    #     chmod +w -R .
+    #     ls $HOME
+    #     ./node_modules/.bin/parcel build ./index.html --out-dir=$out/static 
+    #   '';
+  };
+
   mkDerivation =
     { srcs ? ./elm-srcs.nix
     , src
@@ -16,7 +34,7 @@ let
     stdenv.mkDerivation {
       inherit name src;
 
-      buildInputs = [ elmPackages.elm ];
+      buildInputs = [ elmPackages.elm yarnPkg ];
 
       buildPhase = pkgs.elmPackages.fetchElmDeps {
         elmPackages = import srcs;
@@ -26,6 +44,7 @@ let
       installPhase = let
         elmfile = module: "${srcdir}/${builtins.replaceStrings ["."] ["/"] module}.elm";
       in ''
+        ls "${yarnPkg.out}"
         echo "installPhase"
         ls 
         mkdir -p $out/share/doc
