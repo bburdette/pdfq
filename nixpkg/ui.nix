@@ -9,7 +9,7 @@ yarn2nix-moretea.mkYarnPackage rec {
 
   name = "pdfq-ui";
 
-  packageJSON = ../package.json;
+  packageJSON = ../elm/package.json;
   yarnNix = ./yarn.nix;
 
   version = "1.0";
@@ -35,15 +35,18 @@ yarn2nix-moretea.mkYarnPackage rec {
     # ./node-packages/.bin/parcel index.html --out-dir=$out/static
 
   buildPhase = ''
+    echo "ls -l"
+    ls -l
     # ln -s ${src}/index.html node_modules ${src}/node_modules 
     export HOME=$(mktemp -d)
     # HOME=.
     cp -r ${src}/* .
     chmod +w -R .
     ls $HOME
-    elm --version
-    yarn install
-    ls 
+    # elm --version
+    # yarn install
+    echo "ls -l"
+    ls -l
     ./node_modules/.bin/parcel build ./index.html --out-dir=$out/static 
   '';
 }
