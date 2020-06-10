@@ -14,7 +14,7 @@ rustPlatform.buildRustPackage rec {
   pname = "pdfq";
   version = "1.0";
 
-  ui = callPackage ./ui.nix { };
+  # ui = callPackage ./ui.nix { };
 
   src = fetchFromGitHub {
     owner = "bburdette";
@@ -23,9 +23,9 @@ rustPlatform.buildRustPackage rec {
     sha256 = "1xjqvxp5gcnj9cgh28g5vvj0829i87y39zclnqgw4w36fxfhx9bp";
   };
 
-  preBuild = ''
-    cp -r ${ui}/libexec/gotify-ui/deps/gotify-ui/build ui/build && packr
-  '';
+  # preBuild = ''
+  #   cp -r ${ui}/libexec/gotify-ui/deps/gotify-ui/build ui/build && packr
+  # '';
 
   # cargo-culting this from the gotify package.
   subPackages = [ "." ];

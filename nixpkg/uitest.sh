@@ -1,2 +1,1 @@
-nix-build -E 'with import <nixos-unstable> { }; callPackage ./ui.nix {
-  inherit (darwin.apple_sdk.frameworks) Security; }'
+~/code/nix-error-project/nix/inst/bin/nix-build -E 'with import <nixos-unstable> { }; callPackage ./ui.nix {}'

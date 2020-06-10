@@ -1,6 +1,6 @@
 { yarn2nix-moretea
 , fetchFromGitHub
-, Security
+# , Security
 , utillinux
 , elmPackages
 }:
@@ -34,20 +34,40 @@ yarn2nix-moretea.mkYarnPackage rec {
     # yarn install
     # ./node-packages/.bin/parcel index.html --out-dir=$out/static
 
-  buildPhase = ''
-    echo "ls -l"
-    ls -l
-    # ln -s ${src}/index.html node_modules ${src}/node_modules 
-    export HOME=$(mktemp -d)
-    # HOME=.
-    cp -r ${src}/* .
-    chmod +w -R .
-    ls $HOME
-    # elm --version
-    # yarn install
-    echo "ls -l"
-    ls -l
-    ./node_modules/.bin/parcel build ./index.html --out-dir=$out/static 
-  '';
+  # parcel = yarnNix.packages.
+  
+
+  postBuild = ''
+    runHook linkNodeModulesHook
+    pwd
+    ln -s $node_modules node_modules
+    ls -al
+    echo "node_modeules?$node_modules"
+    # find nixpkg
+    echo "out: $out"
+    # find $out
+    # find ../../bin
+    # ls ../../nix
+    # find ../../etc
+    ./node_modules/.bin/parcel build index.html --out-dir=$out/static
+    '';
+
+  # buildPhase = ''
+  #   echo "find"
+  #   find
+  #   # ln -s ${src}/index.html node_modules ${src}/node_modules 
+  #   export HOME=$(mktemp -d)
+  #   # HOME=.
+  #   # cp -r ${src}/* .
+  #   # chmod +w -R .
+  #   # echo "ls home"
+  #   ls $HOME
+  #   # elm --version
+  #   # yarn install --offline
+  #   yarn build
+  #   echo "find"
+  #   find
+  #   # ./node_modules/.bin/ build ./index.html --out-dir=$out/static 
+  # '';
 }
 
