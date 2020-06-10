@@ -17,7 +17,6 @@ in
   options = {
     services.pdfq = {
       enable = mkEnableOption "pdfq";
-
       };
   };
 
