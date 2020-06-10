@@ -1,7 +1,7 @@
 // --------------------------------------------------------
 // init elm
 // --------------------------------------------------------
-import { Elm } from './src/Main.elm';
+import { Elm } from './main.js';
 
 import * as pdfe from "./node_modules/pdf-element/pdfelement.js";
 // import * as pdfe from "./pdfelement.js";
