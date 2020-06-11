@@ -3,6 +3,8 @@
 # , Security
 , utillinux
 , elmPackages
+, callPackage
+, pkgs
 }:
 
 yarn2nix-moretea.mkYarnPackage rec {
@@ -18,18 +20,20 @@ yarn2nix-moretea.mkYarnPackage rec {
   src = fetchFromGitHub {
     owner = "bburdette";
     repo = "pdfq";
-    rev = "70c967b04651f079c812561ad5eaa0a160926c1f";
-    sha256 = "074zyk6avm8k54y635wwgw7jvb277x1g17xw9plfb16k5c3qj6aw";
+    rev = "25e29e4f432eca12f84a8c71a295e3d185bc5a90";
+    sha256 = "1k0x8z6m2326prsmz3mrs9yjn6kq92jaqw74if77di6pwz26qcig";
   };
 
   packageJSON = "${src}/elm/package.json";
   yarnLock = "${src}/elm/yarn.lock";
 
   # let this build the elm stuff, not parcel.
-  # the_elm = "./elm/default.nix";
+  # the_elm = callPackage "${src}/elm/default.nix" { };
+  the_elm = callPackage "${src}/elm" {  };
 
   preConfigure = ''
     echo "preconfigure"
+    ls -al
     '';
 
   # replacing a needed mkYarnPackage configurePhase?
@@ -52,32 +56,30 @@ yarn2nix-moretea.mkYarnPackage rec {
   # parcel = yarnNix.packages.
 
   preBuild = ''
-    echo "prebuild"
-    ls -l
+    # empty
     '';
 
   # postBuild = ''
   buildPhase = ''
-    # runHook linkNodeModulesHook   # doesn't work
-    pwd
     # we need the node_modules because parcel is in there.
-    ln -s $node_modules node_modules
-    ln -s $src src
-    echo "ls -al"
-    ls -al
-    # ln -s .elm elm/.elm  # elm already built, don't need.
-    echo "node_modules: $node_modules"
-    # find nixpkg
-    echo "out: $out"
-    # find $out
-    # find ../../bin
-    # ls ../../nix
-    # find ../../etc
-    cd src/elm
-    pwd
-    ls ../../
-    /build/source/node_modules/.bin/parcel build index.html --out-dir=$out/static
+    cp -r $src/elm elmwat
+    chmod +w elmwat
+    ln -s $node_modules elmwat/node_modules
+    cp $the_elm/Main.js elmwat/main.js
+    cd elmwat
+    mkdir -p $out/static
+    ./node_modules/.bin/parcel build index.html --out-dir=$out/static
     '';
+
+  # parcel already built into $out/static, so we're done.
+  installPhase = ''
+    runHook preInstall
+    runHook postInstall
+    '';
+  distPhase = ''
+    # doing nothing
+    '';
+
 
   # buildPhase = ''
   #   echo "find"
