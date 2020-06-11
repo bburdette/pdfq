@@ -12,7 +12,8 @@
   "dependencies": {
     "node-ensure": "^0.0.0",
     "pdf-element": "^0.1.4",
-    "pdfjs-dist": "^2.2.228"
+    "pdfjs-dist": "^2.2.228",
+    "parcel-plugin-static-files-copy": "^2.2.1",
   },
   "staticFiles": {
     "staticPath": [
