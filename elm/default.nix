@@ -1,8 +1,6 @@
-{ nixpkgs ? <nixpkgs>
-, config ? {}
+{
+  stdenv, elmPackages, lib, nodePackages_10_x, pkgs
 }:
-
-with (import nixpkgs config);
 
 let
   mkDerivation =
