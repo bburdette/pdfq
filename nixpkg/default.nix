@@ -37,7 +37,7 @@ rustPlatform.buildRustPackage rec {
   subPackages = [ "." ];
 
 
-  sourceRoot = "source/server";
+#  sourceRoot = "source/server";
   cargoSha256 = "1jdbjx3xa7f4yhq4l7xsgy6jpdr2lkgqrzarqb5vj2s3jg13kyl4";
   # dontMakeSourcesWritable=1;
 
