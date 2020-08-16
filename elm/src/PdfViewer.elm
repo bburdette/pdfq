@@ -1,5 +1,6 @@
 module PdfViewer exposing (..)
 
+import Browser.Dom as Dom
 import Common exposing (buttonStyle)
 import Element as E exposing (Element)
 import Element.Background as EBg
@@ -8,17 +9,19 @@ import Element.Events as EE
 import Element.Font as EF
 import Element.Input as EI
 import Html exposing (Html)
+import Html.Attributes as HA
 import PdfDoc as PD
 import PdfElement
 import PdfInfo exposing (PdfNotes, PersistentState)
+import Task
 import Time
 import Util
 
 
 type Transition listmodel
-    = Viewer (Model listmodel)
-    | ViewerPersist (Model listmodel) (Time.Posix -> PersistentState)
-    | ViewerSaveNotes (Model listmodel) PdfNotes
+    = Viewer (Model listmodel) Command
+      -- | ViewerPersist (Model listmodel) (Time.Posix -> PersistentState)
+      -- | ViewerSaveNotes (Model listmodel) PdfNotes
     | List listmodel (Time.Posix -> PersistentState) PdfNotes
     | Sizer (Model listmodel) Int
 
@@ -33,6 +36,15 @@ type Msg
     | NoteChanged String
     | TextFocus Bool
     | StartSizing
+    | Noop
+
+
+type Command
+    = CmdPersist (Time.Posix -> PersistentState)
+    | CmdSaveNotes PdfNotes
+    | CmdCmd (Cmd Msg)
+    | CmdBatch (List Command)
+    | CmdNoop
 
 
 type alias Model listmodel =
@@ -62,7 +74,7 @@ toPersistentState model time =
 
 persist : Model a -> Transition a
 persist model =
-    ViewerPersist model (toPersistentState model)
+    Viewer model (CmdPersist <| toPersistentState model)
 
 
 init : Maybe PersistentState -> Maybe PdfNotes -> PD.OpenedPdf -> a -> Model a
@@ -97,6 +109,20 @@ init mbps mbpdfn opdf listmod =
     }
 
 
+jumpToBottom : String -> Cmd Msg
+jumpToBottom id =
+    Dom.getViewportOf id
+        |> Task.andThen (\info -> Dom.setViewportOf id 0 info.scene.height)
+        |> Task.attempt (\_ -> Noop)
+
+
+jumpToTop : String -> Cmd Msg
+jumpToTop id =
+    Dom.getViewportOf id
+        |> Task.andThen (\info -> Dom.setViewportOf id 0 0)
+        |> Task.attempt (\_ -> Noop)
+
+
 changePage : Int -> Model a -> Transition a
 changePage increment model =
     let
@@ -104,10 +130,20 @@ changePage increment model =
             model.page + increment
     in
     if 0 < p && p < model.pageCount then
-        persist { model | page = p, pageText = String.fromInt p }
+        Viewer { model | page = p, pageText = String.fromInt p } <|
+            CmdBatch
+                [ CmdCmd
+                    (if increment > 0 then
+                        jumpToTop "pdfcolumn"
+
+                     else
+                        jumpToBottom "pdfcolumn"
+                    )
+                , CmdPersist <| toPersistentState model
+                ]
 
     else
-        Viewer model
+        Viewer model CmdNoop
 
 
 zoom : Float -> Model a -> Transition a
@@ -121,6 +157,7 @@ zoom mult model =
             | zoom = z
             , zoomText = String.fromFloat z
         }
+        CmdNoop
 
 
 setNotesWidth : Int -> Model a -> Transition a
@@ -136,7 +173,7 @@ update msg model =
 
         OnKeyDown key ->
             if model.textFocus then
-                Viewer model
+                Viewer model CmdNoop
 
             else
                 case key of
@@ -165,7 +202,7 @@ update msg model =
                         zoom (1.0 / 1.1) model
 
                     _ ->
-                        Viewer model
+                        Viewer model CmdNoop
 
         ZoomChanged string ->
             persist
@@ -195,13 +232,16 @@ update msg model =
                 updnotes =
                     { notes | notes = txt }
             in
-            ViewerSaveNotes { model | notes = updnotes } updnotes
+            Viewer { model | notes = updnotes } <| CmdSaveNotes updnotes
 
         TextFocus focus ->
-            Viewer { model | textFocus = focus }
+            Viewer { model | textFocus = focus } CmdNoop
 
         StartSizing ->
             Sizer model model.notesWidth
+
+        Noop ->
+            Viewer model CmdNoop
 
 
 topBar : Model a -> Element Msg
@@ -306,6 +346,7 @@ eview model =
                 , E.paddingXY 0 0
                 , E.height E.fill
                 , E.scrollbarY
+                , E.htmlAttribute <| HA.id "pdfcolumn"
                 ]
                 [ E.el
                     [ E.width E.shrink

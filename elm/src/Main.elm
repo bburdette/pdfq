@@ -61,23 +61,22 @@ decodeKey =
     JD.field "key" JD.string
 
 
-viewerTransition : Model -> PV.Transition PL.Model -> ( Model, Cmd Msg )
-viewerTransition model vt =
-    case vt of
-        PV.Viewer vmod ->
-            ( { model | page = Viewer vmod }, Cmd.none )
+viewerCmds : Model -> PV.Command -> ( Model, Cmd Msg )
+viewerCmds model vcmd =
+    case vcmd of
+        PV.CmdNoop ->
+            ( model, Cmd.none )
 
-        PV.ViewerPersist vmod mkpersist ->
-            ( { model | page = Viewer vmod }
+        PV.CmdPersist mkpersist ->
+            ( model
             , Task.perform
                 (Now (\time -> mkPublicHttpReq model.location (PI.SavePdfState (PdfInfo.encodePersistentState (mkpersist time))) ServerResponse))
                 Time.now
             )
 
-        PV.ViewerSaveNotes vmod notes ->
+        PV.CmdSaveNotes notes ->
             ( { model
-                | page = Viewer vmod
-                , saveNotes = Dict.insert notes.pdfName ( model.saveNotesCount, notes ) model.saveNotes
+                | saveNotes = Dict.insert notes.pdfName ( model.saveNotesCount, notes ) model.saveNotes
                 , saveNotesCount = model.saveNotesCount + 1
               }
             , -- N second delay before saving.
@@ -86,6 +85,30 @@ viewerTransition model vt =
                     (\_ -> SaveNote notes.pdfName model.saveNotesCount)
             )
 
+        PV.CmdCmd cmd ->
+            ( model, Cmd.map ViewerMsg cmd )
+
+        PV.CmdBatch vcmds ->
+            List.foldl
+                (\vc ( mod, cmds ) ->
+                    let
+                        ( m, vcr ) =
+                            viewerCmds mod vc
+                    in
+                    ( m, Cmd.batch [ vcr, cmds ] )
+                )
+                ( model, Cmd.none )
+                vcmds
+
+
+viewerTransition : Model -> PV.Transition PL.Model -> ( Model, Cmd Msg )
+viewerTransition model vt =
+    case vt of
+        PV.Viewer vmod vcmd ->
+            viewerCmds { model | page = Viewer vmod } vcmd
+
+        -- PV.ViewerPersist vmod mkpersist ->
+        --            PV.ViewerSaveNotes vmod notes ->
         PV.List listmodel mkpstate pdfnotes ->
             addLastStateCmd
                 ( { model
