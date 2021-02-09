@@ -1,6 +1,11 @@
+use barrel::backend::Sqlite;
+use barrel::{types, Migration};
+use migrations;
+use refinery::embed_migrations;
+use refinery::Migrate;
 use rusqlite::{params, Connection};
 use serde_json;
-use std::collections::{BTreeMap};
+use std::collections::BTreeMap;
 use std::convert::TryInto;
 use std::error::Error;
 use std::path::Path;
@@ -43,30 +48,15 @@ pub fn pdflist(dbfile: &Path) -> rusqlite::Result<Vec<PdfInfo>> {
   Ok(pv)
 }
 
-pub fn dbinit(dbfile: &Path) -> rusqlite::Result<()> {
-  let conn = Connection::open(dbfile)?;
+mod embedded {
+  use refinery::embed_migrations;
+  embed_migrations!("src/migrations");
+}
 
-  // create the pdfinfo table.
-  println!(
-    "pdfinfo create: {:?}",
-    conn.execute(
-      "CREATE TABLE pdfinfo (
-                  name            TEXT NOT NULL PRIMARY KEY,
-                  last_read       INTEGER,
-                  persistentState BLOB,
-                  notes           TEXT NOT NULL
-                  )",
-      params![],
-    )?
-  );
-  conn.execute(
-    "CREATE TABLE uistate (
-                id          INTEGER NOT NULL PRIMARY KEY,
-                state       TEXT NOT NULL
-                )",
-    params![],
-  )?;
-  Ok(())
+pub fn dbinit(dbfile: &Path) -> Result<(), Box<dyn Error>> {
+  let mut conn = Connection::open(dbfile)?;
+
+  migrations::runner().run(&mut conn).map_err(|e| e.into())
 }
 
 // create entries in the db for pdfs that aren't in there yet.

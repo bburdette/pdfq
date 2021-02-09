@@ -6,7 +6,7 @@ authors = ["Ben Burdette <bburdette@gmail.com>"]
 [dependencies]
 base64 = "0.2.1"
 env_logger = "0.5.13"
-rusqlite = "0.20.0"
+rusqlite = "0.21.0"
 log = "0.4.0"
 actix-web = "1.0.8"
 actix-rt = "0.2.5"
@@ -22,3 +22,6 @@ toml = "0.4.8"
 simple-error = "0.2.1"
 json = "*"
 reqwest = "0.9.24"
+barrel = { version = "0.6.2", features = ["sqlite3"] }
+refinery = { version = "0.2.0-alpha.2", features = ["rusqlite"] }
+# refinery = { path = "../../../op-code/refinery/refinery", features = ["rusqlite"] }

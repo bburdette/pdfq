@@ -17,8 +17,11 @@ extern crate log;
 extern crate rusqlite;
 #[macro_use]
 extern crate serde_derive;
+extern crate barrel;
 extern crate base64;
+extern crate refinery;
 
+mod migrations;
 mod process_json;
 mod sqldata;
 mod util;
@@ -29,11 +32,15 @@ use actix_web::middleware::Logger;
 use actix_web::web::JsonConfig;
 use actix_web::{
   http, middleware, web, App, FromRequest, HttpMessage, HttpRequest, HttpResponse, HttpServer,
-  Responder, Result,
+  Responder,
 };
 use futures::future::Future;
 use process_json::{PublicMessage, ServerResponse};
+use std::convert::Into;
+use std::convert::TryInto;
+use std::error::Error;
 use std::path::{Path, PathBuf};
+use std::result::Result;
 use std::sync::{Arc, RwLock};
 use std::time::SystemTime;
 
@@ -46,7 +53,7 @@ pub struct Config {
   pdfdb: String,
 }
 
-fn files(req: &HttpRequest) -> Result<NamedFile> {
+fn files(req: &HttpRequest) -> actix_web::Result<NamedFile> {
   println!("files!");
   let path: PathBuf = req.match_info().query("tail").parse()?;
   info!("files: {:?}", path);
@@ -54,7 +61,7 @@ fn files(req: &HttpRequest) -> Result<NamedFile> {
   Ok(NamedFile::open(stpath)?)
 }
 
-fn pdffiles(state: web::Data<Config>, req: &HttpRequest) -> Result<NamedFile> {
+fn pdffiles(state: web::Data<Config>, req: &HttpRequest) -> actix_web::Result<NamedFile> {
   let uripath = Path::new(req.uri().path());
   uripath
     .strip_prefix("/pdfs")
@@ -71,12 +78,12 @@ fn pdffiles(state: web::Data<Config>, req: &HttpRequest) -> Result<NamedFile> {
     })
 }
 
-fn favicon(_req: &HttpRequest) -> Result<NamedFile> {
+fn favicon(_req: &HttpRequest) -> actix_web::Result<NamedFile> {
   let stpath = Path::new("static/favicon.ico");
   Ok(NamedFile::open(stpath)?)
 }
 
-fn sitemap(_req: &HttpRequest) -> Result<NamedFile> {
+fn sitemap(_req: &HttpRequest) -> actix_web::Result<NamedFile> {
   let stpath = Path::new("static/sitemap.txt");
   Ok(NamedFile::open(stpath)?)
 }
@@ -157,12 +164,14 @@ fn load_config() -> Config {
 }
 
 fn main() {
+  //  sqldata::migrate_test();
+
   match err_main() {
     Err(e) => println!("error: {:?}", e),
     Ok(_) => (),
   }
 }
-fn err_main() -> Result<(), std::io::Error> {
+fn err_main() -> Result<(), Box<dyn Error>> {
   env_logger::init();
 
   info!("server init!");
@@ -171,9 +180,12 @@ fn err_main() -> Result<(), std::io::Error> {
 
   let pdfdbp = Path::new(&config.pdfdb);
 
-  if !pdfdbp.exists() {
-    sqldata::dbinit(pdfdbp);
-  }
+  sqldata::dbinit(pdfdbp)?;
+  // if !pdfdbp.exists() {
+  //   println!("before dbinit");
+  //   sqldata::dbinit(pdfdbp)?;
+  //   println!("after dbinit");
+  // }
 
   if config.createdirs {
     std::fs::create_dir_all(config.pdfdir.clone())?;
@@ -189,12 +201,6 @@ fn err_main() -> Result<(), std::io::Error> {
   println!("config: {:?}", config);
 
   // let sys = actix_rt::System::new("pdf-server");
-
-  let nf = NamedFile::open("/home/bburdette/papers/7Sketches2.pdf");
-  match nf {
-    Ok(_) => println!("ef: "),
-    Err(e) => println!("err: {}", e),
-  }
 
   let c = web::Data::new(config.clone());
   HttpServer::new(move || {
@@ -216,5 +222,7 @@ fn err_main() -> Result<(), std::io::Error> {
       .service(actix_files::Files::new("/", "static/"))
   })
   .bind(format!("{}:{}", config.ip, config.port))?
-  .run()
+  .run()?;
+
+  Ok(())
 }
