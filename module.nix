@@ -66,7 +66,7 @@ in
 
       script = ''
           cd /home/bburdette/code/pdfq/server
-          /home/bburdette/code/pdfq/server/target/debug/server
+          /home/bburdette/code/pdfq/server/target/release/server
           '';
 
       # serviceConfig = {
