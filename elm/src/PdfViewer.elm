@@ -129,7 +129,7 @@ changePage increment model =
         p =
             model.page + increment
     in
-    if 0 < p && p < model.pageCount then
+    if 0 < p && p <= model.pageCount then
         Viewer { model | page = p, pageText = String.fromInt p } <|
             CmdBatch
                 [ CmdCmd
