@@ -10,7 +10,7 @@ in
       sqlite
       pkgconfig
       openssl.dev 
-      nix
+      # nix
       ];
     OPENSSL_DEV=openssl.dev;
   }
